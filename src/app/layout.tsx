@@ -1,13 +1,11 @@
-import type { Metadata } from "next";
+"use client";
+
 import { Inter } from "next/font/google";
+import { AuthProvider } from "@/context/AuthContext";
+import { SessionProvider } from "next-auth/react";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
-
-export const metadata: Metadata = {
-  title: "BuddyShare - Find Activity Partners",
-  description: "Connect with people for events and activities in your area",
-};
 
 export default function RootLayout({
   children,
@@ -17,7 +15,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <div className="bg-gray-50 min-h-screen">{children}</div>
+        <SessionProvider>
+          <AuthProvider>
+            <div className="bg-gray-50 min-h-screen">{children}</div>
+          </AuthProvider>
+        </SessionProvider>
       </body>
     </html>
   );

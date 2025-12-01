@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import { FcGoogle } from "react-icons/fc";
 import {
   FiUser,
@@ -159,19 +160,27 @@ export default function RegisterPage() {
     );
 
     try {
-      const res = await API.get("/auth/google");
-      console.log(res.data);
-      toast.dismiss(loadingToast);
-      showAlert('success', "Google registration initiated! Please check your email.");
+      const result = await signIn("google", {
+        callbackUrl: "/",
+        redirect: false,
+      });
+
+      if (result?.error) {
+        throw new Error(result.error);
+      }
+
+      if (result?.url) {
+        toast.dismiss(loadingToast);
+        showAlert('success', "Google registration successful! Redirecting...");
+        router.push(result.url);
+      }
     } catch (err: any) {
       console.error("Google registration error:", err);
       toast.dismiss(loadingToast);
       showAlert('error', 
-        err.response?.data?.message ||
         err.message ||
-        "Google registration failed"
+        "Google registration failed. Please try again."
       );
-    } finally {
       setLoading(false);
     }
   };

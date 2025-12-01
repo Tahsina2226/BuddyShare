@@ -10,7 +10,7 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   pages: {
-    signIn: "/auth/login", // আপনার custom login page
+    signIn: "/auth/login",
   },
 };
 

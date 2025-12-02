@@ -1,6 +1,38 @@
-import NextAuth, { NextAuthOptions } from "next-auth";
+import NextAuth, { NextAuthOptions, Session } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
+import { JWT } from "next-auth/jwt";
+
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      name?: string | null;
+      email?: string | null;
+      role?: string;
+      token?: string;
+    };
+    accessToken?: string;
+    backendToken?: string;
+  }
+
+  interface User {
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    role?: string;
+    token?: string;
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id?: string;
+    role?: string;
+    accessToken?: string;
+    backendToken?: string;
+  }
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -16,9 +48,15 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          // Replace this with your actual API call
+          console.log("🔐 Attempting login to backend:", {
+            url: `${process.env.NEXT_PUBLIC_API_URL}/auth/login`,
+            email: credentials.email,
+          });
+
           const response = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/auth/login`,
+            `${
+              process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
+            }/auth/login`,
             {
               method: "POST",
               headers: {
@@ -32,32 +70,49 @@ export const authOptions: NextAuthOptions = {
           );
 
           const data = await response.json();
+          console.log("Backend response:", data);
 
-          if (!response.ok) {
+          if (!data.success) {
             throw new Error(data.message || "Login failed");
           }
 
-          if (data.success) {
-            // Return user object that will be encoded in the JWT
-            return {
-              id: data.data.user._id || data.data.user.id,
-              email: data.data.user.email,
-              name: data.data.user.name,
-              role: data.data.user.role,
-              ...data.data.user,
-            };
-          } else {
-            throw new Error(data.message || "Invalid credentials");
+          if (!data.data?.user || !data.data?.token) {
+            throw new Error("Invalid response format from server");
           }
+
+          const { user, token } = data.data;
+
+          if (typeof window !== "undefined") {
+            localStorage.setItem("token", token);
+            localStorage.setItem("auth_token", token);
+            localStorage.setItem("access_token", token);
+            localStorage.setItem("user", JSON.stringify(user));
+          }
+
+          return {
+            id: user._id || user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role || "user",
+            token: token,
+            ...user,
+          };
         } catch (error: any) {
           console.error("Auth error:", error);
 
-          // Provide more specific error messages
           if (
             error.message.includes("Network") ||
             error.message.includes("fetch")
           ) {
-            throw new Error("Server connection failed. Please try again.");
+            throw new Error(
+              "Cannot connect to server. Please check if backend is running on http://localhost:5000"
+            );
+          }
+
+          if (error.message.includes("JSON")) {
+            throw new Error(
+              "Invalid server response. Please check backend configuration."
+            );
           }
 
           throw new Error(error.message || "Invalid email or password");
@@ -71,42 +126,102 @@ export const authOptions: NextAuthOptions = {
   ],
   pages: {
     signIn: "/auth/login",
-    signOut: "/",
-    error: "/auth/error",
+    signOut: "/auth/login",
+    error: "/auth/login",
+    newUser: "/auth/register",
   },
   callbacks: {
-    async session({ session, token }) {
-      // Send properties to the client
+    async jwt({ token, user, account }) {
+      if (user) {
+        token.id = user.id;
+        token.role = (user as any).role;
+        token.backendToken = (user as any).token;
+        token.accessToken = (user as any).token;
+
+        if (typeof window !== "undefined" && (user as any).token) {
+          localStorage.setItem("token", (user as any).token);
+          localStorage.setItem("auth_token", (user as any).token);
+          localStorage.setItem("access_token", (user as any).token);
+        }
+      }
+
+      if (account?.provider === "google") {
+        try {
+          const response = await fetch(
+            `${
+              process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
+            }/auth/google`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                token: account.id_token,
+                email: token.email,
+                name: token.name,
+              }),
+            }
+          );
+
+          const data = await response.json();
+          if (data.success) {
+            token.id = data.data.user._id;
+            token.role = data.data.user.role;
+            token.backendToken = data.data.token;
+
+            if (typeof window !== "undefined") {
+              localStorage.setItem("token", data.data.token);
+              localStorage.setItem("user", JSON.stringify(data.data.user));
+            }
+          }
+        } catch (error) {
+          console.error("Google auth backend sync error:", error);
+        }
+      }
+
+      return token;
+    },
+
+    async session({ session, token }): Promise<Session> {
       if (session.user) {
-        session.user.id = token.sub || (token.id as string);
+        session.user.id = token.id as string;
         session.user.role = token.role as string;
-        session.user.name = token.name as string;
+        session.user.token = token.backendToken as string;
+        session.accessToken = token.backendToken as string;
+        session.backendToken = token.backendToken as string;
       }
       return session;
     },
-    async jwt({ token, user }) {
-      // Persist user data to the token
-      if (user) {
-        token.id = user.id;
-        token.role = user.role;
-        token.name = user.name;
-      }
-      return token;
-    },
+
     async redirect({ url, baseUrl }) {
-      // Allows relative callback URLs
-      if (url.startsWith("/")) return `${baseUrl}${url}`;
-      // Allows callback URLs on the same origin
-      else if (new URL(url).origin === baseUrl) return url;
-      return baseUrl;
+      if (url.includes("/auth/login") || url.includes("/api/auth")) {
+        return `${baseUrl}/`;
+      }
+      return url.startsWith("/") ? `${baseUrl}${url}` : url;
     },
   },
   session: {
-    strategy: "jwt", // Using JWT strategy for better security
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60,
   },
   secret: process.env.NEXTAUTH_SECRET,
-  debug: process.env.NODE_ENV === "development", // Enable debug in development
+  debug: process.env.NODE_ENV === "development",
+
+  events: {
+    async signIn({ user, account, profile, isNewUser }) {
+      console.log("User signed in:", user.email);
+    },
+    async signOut({ token, session }) {
+      console.log("User signed out");
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("token");
+        localStorage.removeItem("auth_token");
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("user");
+      }
+    },
+  },
 };
 
 const handler = NextAuth(authOptions);

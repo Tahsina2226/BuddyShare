@@ -1,14 +1,27 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import Link from 'next/link'
-import { useAuth } from '@/context/AuthContext'
-import { useRouter } from 'next/navigation'
-import { FcGoogle } from 'react-icons/fc'
-import { FiMail, FiLock, FiEye, FiEyeOff, FiAlertCircle, FiCheckCircle } from 'react-icons/fi'
-import toast, { Toaster } from 'react-hot-toast'
+import { useState } from "react";
+import Link from "next/link";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { FcGoogle } from "react-icons/fc";
+import {
+  FiMail,
+  FiLock,
+  FiEye,
+  FiEyeOff,
+  FiAlertCircle,
+  FiCheckCircle,
+} from "react-icons/fi";
+import toast, { Toaster } from "react-hot-toast";
 
-const FancyAlert = ({ type, message }: { type: 'success' | 'error' | 'info' | 'warning', message: string }) => {
+const FancyAlert = ({
+  type,
+  message,
+}: {
+  type: "success" | "error" | "info" | "warning";
+  message: string;
+}) => {
   const icons = {
     success: <FiCheckCircle className="text-green-400 text-xl" />,
     error: <FiAlertCircle className="text-red-400 text-xl" />,
@@ -17,14 +30,18 @@ const FancyAlert = ({ type, message }: { type: 'success' | 'error' | 'info' | 'w
   };
 
   const bgColors = {
-    success: "bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-green-500/30",
+    success:
+      "bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-green-500/30",
     error: "bg-gradient-to-r from-red-500/20 to-rose-500/20 border-red-500/30",
-    warning: "bg-gradient-to-r from-yellow-500/20 to-amber-500/20 border-yellow-500/30",
+    warning:
+      "bg-gradient-to-r from-yellow-500/20 to-amber-500/20 border-yellow-500/30",
     info: "bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-blue-500/30",
   };
 
   return (
-    <div className={`${bgColors[type]} backdrop-blur-lg border px-6 py-4 rounded-xl shadow-2xl flex items-center space-x-3 animate-in slide-in-from-top-5 duration-300`}>
+    <div
+      className={`${bgColors[type]} backdrop-blur-lg border px-6 py-4 rounded-xl shadow-2xl flex items-center space-x-3 animate-in slide-in-from-top-5 duration-300`}
+    >
       {icons[type]}
       <span className="font-medium text-white">{message}</span>
     </div>
@@ -32,30 +49,35 @@ const FancyAlert = ({ type, message }: { type: 'success' | 'error' | 'info' | 'w
 };
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const router = useRouter()
-  const { login, loginWithGoogle } = useAuth()
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
-  const showAlert = (type: 'success' | 'error' | 'info' | 'warning', message: string) => {
-    toast.custom((t) => (
-      <FancyAlert type={type} message={message} />
-    ), {
+  const showAlert = (
+    type: "success" | "error" | "info" | "warning",
+    message: string
+  ) => {
+    toast.custom((t) => <FancyAlert type={type} message={message} />, {
       duration: 4000,
-      position: 'top-center',
+      position: "top-center",
     });
   };
 
   const validateForm = () => {
     if (!email || !password) {
-      showAlert('error', "Please fill in all required fields");
+      showAlert("error", "Please fill in all required fields");
       return false;
     }
 
     if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
-      showAlert('error', "Please enter a valid email address");
+      showAlert("error", "Please enter a valid email address");
+      return false;
+    }
+
+    if (password.length < 6) {
+      showAlert("error", "Password must be at least 6 characters");
       return false;
     }
 
@@ -63,93 +85,146 @@ export default function LoginPage() {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
+    e.preventDefault();
+
     if (!validateForm()) return;
 
     setLoading(true);
-    
+
     const loadingToast = toast.loading(
       <div className="flex items-center space-x-3">
         <div className="border-white border-b-2 rounded-full w-5 h-5 animate-spin"></div>
         <span className="text-white">Signing you in...</span>
       </div>,
       {
-        position: 'top-center',
+        position: "top-center",
         duration: Infinity,
       }
     );
 
     try {
-      const result = await login(email, password)
-      
-      if (result.success) {
-        toast.dismiss(loadingToast);
-        showAlert('success', "Login successful! Redirecting...");
-        
-        setTimeout(() => {
-          router.push('/')
-        }, 1500);
-      } else {
-        throw new Error(result.message || 'Login failed');
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        // Clean up NextAuth error messages
+        let errorMessage = result.error;
+
+        if (errorMessage.includes("CredentialsSignin")) {
+          errorMessage = "Invalid email or password";
+        } else if (
+          errorMessage.includes("fetch failed") ||
+          errorMessage.includes("Network")
+        ) {
+          errorMessage =
+            "Cannot connect to server. Please check your connection or try again later.";
+        } else if (errorMessage.includes("Email and password are required")) {
+          errorMessage = "Please enter both email and password";
+        }
+
+        throw new Error(errorMessage);
       }
-      
+
+      if (result?.ok && !result?.error) {
+        toast.dismiss(loadingToast);
+        showAlert("success", "Login successful! Redirecting...");
+
+        // Redirect to home page
+        setTimeout(() => {
+          router.push("/");
+          router.refresh(); // Refresh to update auth state
+        }, 1000);
+      } else {
+        throw new Error("Login failed. Please try again.");
+      }
     } catch (err: any) {
-      console.error('Login failed:', err)
+      console.error("Login error:", err);
       toast.dismiss(loadingToast);
-      showAlert('error', err.message || 'Login failed. Please check your credentials.');
+
+      // Show user-friendly error messages
+      let errorMessage = err.message;
+      if (err.message.includes("Server connection failed")) {
+        errorMessage =
+          "Cannot connect to the server. Please make sure the backend is running.";
+      }
+
+      showAlert(
+        "error",
+        errorMessage || "Login failed. Please check your credentials."
+      );
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleGoogleLogin = async () => {
-    setLoading(true)
-    
+    setLoading(true);
+
     const loadingToast = toast.loading(
       <div className="flex items-center space-x-3">
         <div className="border-white border-b-2 rounded-full w-5 h-5 animate-spin"></div>
         <span className="text-white">Connecting to Google...</span>
       </div>,
       {
-        position: 'top-center',
+        position: "top-center",
         duration: Infinity,
       }
     );
 
     try {
-      const result = await loginWithGoogle()
-      
-      if (result.success) {
-        toast.dismiss(loadingToast);
-        showAlert('success', "Google login successful! Redirecting...");
-      } else {
-        throw new Error(result.message || 'Google login failed');
+      const result = await signIn("google", {
+        callbackUrl: "/",
+        redirect: false,
+      });
+
+      if (result?.error) {
+        throw new Error(result.error);
       }
-      
+
+      if (result?.url) {
+        toast.dismiss(loadingToast);
+        showAlert("success", "Google login successful! Redirecting...");
+        window.location.href = result.url;
+      } else {
+        throw new Error("Google login failed");
+      }
     } catch (err: any) {
-      console.error('Google login failed:', err)
+      console.error("Google login error:", err);
       toast.dismiss(loadingToast);
-      showAlert('error', err.message || 'Google login failed. Please try again.');
-    } finally {
-      setLoading(false)
+
+      let errorMessage = err.message;
+      if (err.message.includes("OAuthAccountNotLinked")) {
+        errorMessage =
+          "This email is already registered with another method. Please use your email/password to login.";
+      } else if (err.message.includes("OAuthCallback")) {
+        errorMessage = "Google authentication failed. Please try again.";
+      }
+
+      showAlert(
+        "error",
+        errorMessage || "Google login failed. Please try again."
+      );
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="flex justify-center items-center bg-gradient-to-br from-[#234C6A] via-[#D2C1B6] to-[#96A78D] px-4 sm:px-6 lg:px-8 py-12 min-h-screen">
-      <Toaster 
+      <Toaster
         toastOptions={{
-          className: '',
+          className: "",
           style: {
-            background: 'transparent',
-            boxShadow: 'none',
+            background: "transparent",
+            boxShadow: "none",
             padding: 0,
             margin: 0,
           },
         }}
       />
-      
+
       <div className="space-y-8 w-full max-w-md">
         <div className="slide-in-from-top-5 text-center animate-in duration-500 fade-in">
           <div className="flex justify-center items-center bg-white/20 backdrop-blur-sm mx-auto mb-4 border border-white/30 rounded-full w-16 h-16 animate-in duration-500 delay-100 fade-in">
@@ -159,8 +234,11 @@ export default function LoginPage() {
             Welcome back
           </h2>
           <p className="mt-3 text-white/90 text-sm">
-            Don't have an account?{' '}
-            <Link href="/auth/register" className="font-semibold text-white hover:text-white/90 underline hover:tracking-wider transition-all duration-200">
+            Don't have an account?{" "}
+            <Link
+              href="/auth/register"
+              className="font-semibold text-white hover:text-white/90 underline hover:tracking-wider transition-all duration-200"
+            >
               Get started
             </Link>
           </p>
@@ -170,7 +248,10 @@ export default function LoginPage() {
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="space-y-4">
               <div className="group relative">
-                <label htmlFor="email" className="block mb-1 font-medium text-white text-sm">
+                <label
+                  htmlFor="email"
+                  className="block mb-1 font-medium text-white text-sm"
+                >
                   Email address
                 </label>
                 <div className="relative">
@@ -191,7 +272,10 @@ export default function LoginPage() {
               </div>
 
               <div className="group relative">
-                <label htmlFor="password" className="block mb-1 font-medium text-white text-sm">
+                <label
+                  htmlFor="password"
+                  className="block mb-1 font-medium text-white text-sm"
+                >
                   Password
                 </label>
                 <div className="relative">
@@ -199,7 +283,7 @@ export default function LoginPage() {
                   <input
                     id="password"
                     name="password"
-                    type={showPassword ? 'text' : 'password'}
+                    type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
                     required
                     className="block bg-white/10 focus:bg-white/15 backdrop-blur-sm py-3 pr-12 pl-10 border border-white/30 hover:border-white/50 focus:border-white/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 w-full text-white transition-all duration-200 placeholder-white/60"
@@ -207,6 +291,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={loading}
+                    minLength={6}
                   />
                   <button
                     type="button"
@@ -214,7 +299,11 @@ export default function LoginPage() {
                     onClick={() => setShowPassword(!showPassword)}
                     disabled={loading}
                   >
-                    {showPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
+                    {showPassword ? (
+                      <FiEyeOff size={18} />
+                    ) : (
+                      <FiEye size={18} />
+                    )}
                   </button>
                 </div>
               </div>
@@ -229,11 +318,17 @@ export default function LoginPage() {
                   className="bg-white/10 backdrop-blur-sm border-white/30 hover:border-white/50 rounded focus:ring-white/50 w-4 h-4 text-[#234C6A] transition-colors duration-200 cursor-pointer"
                   disabled={loading}
                 />
-                <label htmlFor="remember-me" className="ml-2 text-white/90 cursor-pointer">
+                <label
+                  htmlFor="remember-me"
+                  className="ml-2 text-white/90 cursor-pointer"
+                >
                   Remember me
                 </label>
               </div>
-              <Link href="/forgot-password" className="font-medium text-white hover:text-white/90 underline hover:tracking-wider transition-colors duration-200">
+              <Link
+                href="/forgot-password"
+                className="font-medium text-white hover:text-white/90 underline hover:tracking-wider transition-colors duration-200"
+              >
                 Forgot password?
               </Link>
             </div>
@@ -249,14 +344,16 @@ export default function LoginPage() {
                   <span>Signing in...</span>
                 </div>
               ) : (
-                'Sign in to your account'
+                "Sign in to your account"
               )}
             </button>
           </form>
 
           <div className="flex items-center my-6 animate-in duration-500 delay-300 fade-in">
             <div className="flex-grow border-white/30 border-t"></div>
-            <span className="mx-4 font-medium text-white/70 text-sm">OR CONTINUE WITH</span>
+            <span className="mx-4 font-medium text-white/70 text-sm">
+              OR CONTINUE WITH
+            </span>
             <div className="flex-grow border-white/30 border-t"></div>
           </div>
 
@@ -271,16 +368,22 @@ export default function LoginPage() {
         </div>
 
         <div className="text-white/70 text-xs text-center animate-in duration-500 delay-500 fade-in">
-          By continuing, you agree to our{' '}
-          <Link href="/terms" className="text-white hover:text-white/90 underline hover:tracking-wider transition-colors duration-200">
+          By continuing, you agree to our{" "}
+          <Link
+            href="/terms"
+            className="text-white hover:text-white/90 underline hover:tracking-wider transition-colors duration-200"
+          >
             Terms of Service
-          </Link>{' '}
-          and{' '}
-          <Link href="/privacy" className="text-white hover:text-white/90 underline hover:tracking-wider transition-colors duration-200">
+          </Link>{" "}
+          and{" "}
+          <Link
+            href="/privacy"
+            className="text-white hover:text-white/90 underline hover:tracking-wider transition-colors duration-200"
+          >
             Privacy Policy
           </Link>
         </div>
       </div>
     </div>
-  )
+  );
 }

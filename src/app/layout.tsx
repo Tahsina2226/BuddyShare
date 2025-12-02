@@ -2,6 +2,7 @@
 
 import { Inter } from "next/font/google";
 import { AuthProvider } from "@/context/AuthContext";
+import Layout from "@/components/layouts/Layout";
 import { SessionProvider } from "next-auth/react";
 import "./globals.css";
 
@@ -17,7 +18,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <SessionProvider>
           <AuthProvider>
-            <div className="bg-gray-50 min-h-screen">{children}</div>
+            <Layout>{children}</Layout>
           </AuthProvider>
         </SessionProvider>
       </body>

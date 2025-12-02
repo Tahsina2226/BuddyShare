@@ -25,6 +25,7 @@ interface AuthContextType {
   loginWithGoogle: () => Promise<AuthResponse>;
   logout: () => void;
   loading: boolean;
+  updateUser: (userData: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,28 +35,76 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (status === "loading") return;
-
-    if (session?.user) {
-      setUser({
-        name: session.user.name || "",
-        email: session.user.email || "",
-        role: "user",
-      });
-    } else {
-      const storedUser = localStorage.getItem("user");
-      if (storedUser) {
-        try {
-          setUser(JSON.parse(storedUser));
-        } catch (error) {
-          console.error("Error parsing stored user:", error);
-          localStorage.removeItem("user");
-          localStorage.removeItem("token");
-        }
-      }
+  const updateUser = (userData: Partial<User>) => {
+    if (user) {
+      const updatedUser = { ...user, ...userData };
+      setUser(updatedUser);
+      localStorage.setItem("user", JSON.stringify(updatedUser));
     }
-    setLoading(false);
+  };
+
+  useEffect(() => {
+    const initAuth = async () => {
+      if (status === "loading") return;
+
+      try {
+        // Check localStorage first
+        const storedUser = localStorage.getItem("user");
+        const token = localStorage.getItem("token");
+
+        if (storedUser && token) {
+          try {
+            const parsedUser = JSON.parse(storedUser);
+            if (parsedUser && parsedUser.role) {
+              setUser(parsedUser);
+              return;
+            }
+          } catch (error) {
+            console.error("Error parsing stored user:", error);
+          }
+        }
+
+        // Check NextAuth session - এখানে fix করুন
+        if (session?.user) {
+          console.log("AuthContext - Setting from NextAuth session:", session.user);
+          
+          // session.user থেকে role নিন, না পাওয়া গেলে default 'user'
+          const sessionUser = session.user as any; // Type assertion
+          const userRole = sessionUser.role || 'user';
+          
+          const userData = {
+            id: sessionUser.id || "",
+            name: sessionUser.name || "",
+            email: sessionUser.email || "",
+            role: userRole as Role, // <-- এখানে session থেকে role নিন
+          };
+          
+          console.log("AuthContext - Creating user data:", userData);
+          
+          setUser(userData);
+          
+          // localStorage-এও save করুন
+          localStorage.setItem("user", JSON.stringify(userData));
+          return;
+        }
+
+        // If nothing works, clear storage
+        if (!session?.user && !storedUser) {
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          setUser(null);
+        }
+      } catch (error) {
+        console.error("Auth initialization error:", error);
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initAuth();
   }, [session, status]);
 
   const login = async (
@@ -65,6 +114,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await API.post("/auth/login", { email, password });
       const { token, user } = res.data.data || res.data;
+
+      if (!user || !token) {
+        throw new Error("Invalid response from server");
+      }
 
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
@@ -92,6 +145,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await API.post("/auth/register", userData);
       const { token, user } = res.data.data || res.data;
 
+      if (!user || !token) {
+        throw new Error("Invalid response from server");
+      }
+
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
       setUser(user);
@@ -110,7 +167,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithGoogle = async (): Promise<AuthResponse> => {
     try {
-      await signIn("google");
+      await signIn("google", { 
+        callbackUrl: "/",
+        redirect: true 
+      });
       return { success: true };
     } catch (error: any) {
       console.error("Google sign-in error:", error);
@@ -122,15 +182,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
-    signOut({ callbackUrl: "/" });
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     setUser(null);
+    signOut({ callbackUrl: "/" });
   };
 
   return (
     <AuthContext.Provider
-      value={{ user, login, register, loginWithGoogle, logout, loading }}
+      value={{ 
+        user, 
+        login, 
+        register, 
+        loginWithGoogle, 
+        logout, 
+        loading,
+        updateUser 
+      }}
     >
       {children}
     </AuthContext.Provider>

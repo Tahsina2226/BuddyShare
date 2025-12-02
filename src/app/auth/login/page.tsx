@@ -135,7 +135,7 @@ export default function LoginPage() {
         // Redirect to home page
         setTimeout(() => {
           router.push("/");
-          router.refresh(); // Refresh to update auth state
+          router.refresh(); 
         }, 1000);
       } else {
         throw new Error("Login failed. Please try again.");
@@ -144,7 +144,7 @@ export default function LoginPage() {
       console.error("Login error:", err);
       toast.dismiss(loadingToast);
 
-      // Show user-friendly error messages
+      
       let errorMessage = err.message;
       if (err.message.includes("Server connection failed")) {
         errorMessage =

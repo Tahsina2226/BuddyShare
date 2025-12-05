@@ -6,9 +6,10 @@ import { useAuth } from "@/context/AuthContext";
 import { EventFormData } from "@/types/eventForm";
 import EventFormDetails from "./EventFormDetails";
 import EventImageUploader from "./EventImageUploader";
-import { showFancyAlert, setupToastStyles } from "./EventFormHelpers";
+import { setupToastStyles } from "./EventFormHelpers";
 import API from "@/utils/api";
 import { Loader2, Rocket, Sparkles, Shield, AlertCircle, CheckCircle, CalendarPlus, Upload } from "lucide-react";
+import toast, { Toaster } from "react-hot-toast";
 
 interface CreateEventFormProps {
   initialData?: Partial<EventFormData>;
@@ -51,7 +52,6 @@ export default function CreateEventForm({
       const storedUser = localStorage.getItem("user");
       return storedUser ? JSON.parse(storedUser) : null;
     } catch (error) {
-      console.error("Error parsing user:", error);
       return null;
     }
   };
@@ -78,12 +78,26 @@ export default function CreateEventForm({
   useEffect(() => {
     if (authLoading) return;
     if (!currentUser) {
-      showFancyAlert("Please login to create events", "warning");
+      toast.error("Please login to create events", {
+        style: {
+          background: 'linear-gradient(to right, #D2C1B6, #c4b1a6)',
+          color: '#fff',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+        },
+        icon: '🔐',
+      });
       router.push("/auth/login");
       return;
     }
     if (currentUser.role !== "host" && currentUser.role !== "admin") {
-      showFancyAlert("Only hosts can create events", "error");
+      toast.error("Only hosts can create events", {
+        style: {
+          background: 'linear-gradient(to right, #D2C1B6, #c4b1a6)',
+          color: '#fff',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+        },
+        icon: '🚫',
+      });
       return;
     }
     if (currentToken) {
@@ -95,37 +109,44 @@ export default function CreateEventForm({
     const validations = [
       {
         condition: !formData.title.trim(),
-        message: "📝 Event title is required",
+        message: "Event title is required",
       },
       {
         condition: !formData.description.trim(),
-        message: "📋 Event description is required",
+        message: "Event description is required",
       },
-      { condition: !formData.date, message: "📅 Event date is required" },
-      { condition: !formData.time, message: "⏰ Event time is required" },
+      { condition: !formData.date, message: "Event date is required" },
+      { condition: !formData.time, message: "Event time is required" },
       {
         condition: !formData.location.trim(),
-        message: "📍 Location is required",
+        message: "Location is required",
       },
       {
         condition: !formData.address.trim(),
-        message: "🏠 Address is required",
+        message: "Address is required",
       },
       {
         condition:
           formData.maxParticipants < 1 || formData.maxParticipants > 1000,
-        message: "👥 Maximum participants must be between 1 and 1000",
+        message: "Maximum participants must be between 1 and 1000",
       },
       {
         condition: formData.joiningFee < 0,
-        message: "💰 Joining fee cannot be negative",
+        message: "Joining fee cannot be negative",
       },
-      { condition: !formData.category, message: "🏷️ Category is required" },
+      { condition: !formData.category, message: "Category is required" },
     ];
 
     for (const validation of validations) {
       if (validation.condition) {
-        showFancyAlert(validation.message, "error");
+        toast.error(validation.message, {
+          style: {
+            background: 'linear-gradient(to right, #D2C1B6, #c4b1a6)',
+            color: '#fff',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+          },
+          icon: '⚠️',
+        });
         return false;
       }
     }
@@ -136,20 +157,31 @@ export default function CreateEventForm({
     e.preventDefault();
     if (!validateForm()) return;
 
+    const submitToast = toast.loading(
+      eventId ? "Updating your event..." : "Creating your event...",
+      {
+        style: {
+          background: 'linear-gradient(to right, #234C6A, #1a3d57)',
+          color: '#fff',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+        }
+      }
+    );
+
     try {
       setLoading(true);
-      showFancyAlert(
-        eventId ? "🔄 Updating your event..." : "✨ Creating your event...",
-        "info",
-        3000
-      );
 
       const freshToken = getCurrentToken();
       if (!freshToken) {
-        showFancyAlert(
-          "🔐 Authentication token not found. Please login again.",
-          "error"
-        );
+        toast.error("Authentication token not found. Please login again.", {
+          id: submitToast,
+          style: {
+            background: 'linear-gradient(to right, #D2C1B6, #c4b1a6)',
+            color: '#fff',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+          },
+          icon: '🔐',
+        });
         setTimeout(() => router.push("/auth/login"), 2000);
         return;
       }
@@ -170,75 +202,132 @@ export default function CreateEventForm({
       const response = await API[method](url, eventData);
 
       if (response.data.success) {
-        showFancyAlert(
-          eventId
-            ? "🎉 Event updated successfully!"
-            : "🎊 Event created successfully!",
-          "celebrate"
+        toast.success(
+          eventId ? "Event updated successfully!" : "Event created successfully!",
+          {
+            id: submitToast,
+            style: {
+              background: 'linear-gradient(to right, #96A78D, #889c7e)',
+              color: '#fff',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+            },
+            icon: eventId ? '✅' : '🎉',
+            duration: 3000,
+          }
         );
 
         setTimeout(() => {
-          showFancyAlert("🎯 Redirecting to events page...", "success", 1500);
+          toast.custom((t) => (
+            <div
+              className={`${
+                t.visible ? 'animate-enter' : 'animate-leave'
+              } max-w-md w-full bg-gradient-to-r from-[#96A78D] to-[#889c7e] shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-white/20`}
+            >
+              <div className="flex-1 p-4 w-0">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0 pt-0.5">
+                    <CheckCircle className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1 ml-3">
+                    <p className="font-medium text-white text-sm">
+                      {eventId ? "Event Updated!" : "Event Created!"}
+                    </p>
+                    <p className="mt-1 text-white/90 text-sm">
+                      {formData.title}
+                    </p>
+                    <div className="mt-2 text-white/70 text-xs">
+                      <p>📍 {formData.location}</p>
+                      <p>📅 {formData.date} at {formData.time}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex border-white/20 border-l">
+                <button
+                  onClick={() => {
+                    router.push(eventId ? `/events/${eventId}` : `/events/${response.data.data?.event?._id || ''}`);
+                    toast.dismiss(t.id);
+                  }}
+                  className="flex justify-center items-center hover:bg-white/10 p-4 border border-transparent rounded-none rounded-r-lg focus:outline-none focus:ring-2 focus:ring-white w-full font-medium text-white text-sm"
+                >
+                  View Event
+                </button>
+              </div>
+            </div>
+          ), { duration: 4000 });
         }, 500);
 
         setTimeout(() => {
-          router.push(eventId ? `/events/${eventId}` : "/events");
+          router.push(eventId ? `/events/${eventId}` : `/events/${response.data.data?.event?._id || ''}`);
           router.refresh();
-        }, 2000);
+        }, 3000);
       } else {
-        showFancyAlert(
-          response.data.message || "❌ Failed to save event",
-          "error"
+        toast.error(
+          response.data.message || "Failed to save event",
+          {
+            id: submitToast,
+            style: {
+              background: 'linear-gradient(to right, #D2C1B6, #c4b1a6)',
+              color: '#fff',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+            },
+            icon: '❌',
+          }
         );
       }
     } catch (err: any) {
-      handleApiError(err);
+      const errorMessages = {
+        401: {
+          title: "Session Expired",
+          message: "Your session has expired. Please login again.",
+          icon: "🔓"
+        },
+        403: {
+          title: "Access Denied",
+          message: "You do not have permission to create events.",
+          icon: "🚫"
+        },
+        400: {
+          title: "Invalid Data",
+          message: err.response?.data?.message || "Please check your inputs.",
+          icon: "📝"
+        },
+        500: {
+          title: "Server Error",
+          message: "Server error. Please try again later.",
+          icon: "🛠️"
+        },
+        Network: {
+          title: "Connection Error",
+          message: "Cannot connect to server. Please check your connection.",
+          icon: "🌐"
+        },
+        default: {
+          title: "Error",
+          message: err.response?.data?.message || "Failed to save event. Please try again.",
+          icon: "❌"
+        }
+      };
+
+      const errorType = err.response?.status in errorMessages ? err.response.status : 
+                     err.message === "Network Error" ? "Network" : "default";
+      const errorInfo = errorMessages[errorType];
+
+      toast.error(errorInfo.message, {
+        id: submitToast,
+        style: {
+          background: 'linear-gradient(to right, #D2C1B6, #c4b1a6)',
+          color: '#fff',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+        },
+        icon: errorInfo.icon,
+      });
+
+      if (errorType === 401) {
+        setTimeout(() => router.push("/auth/login"), 2000);
+      }
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleApiError = (err: any) => {
-    console.error("API error:", err);
-
-    const errorHandlers = {
-      401: () => {
-        showFancyAlert(
-          "🔓 Your session has expired. Please login again.",
-          "error"
-        );
-        setTimeout(() => router.push("/auth/login"), 2000);
-      },
-      403: () =>
-        showFancyAlert(
-          "🚫 You do not have permission to create events.",
-          "error"
-        ),
-      400: () =>
-        showFancyAlert(
-          err.response.data.message ||
-            "📝 Invalid data. Please check your inputs.",
-          "error"
-        ),
-      500: () =>
-        showFancyAlert("🛠️ Server error. Please try again later.", "error"),
-      Network: () =>
-        showFancyAlert(
-          "🌐 Cannot connect to server. Please check your connection.",
-          "error"
-        ),
-    };
-
-    if (err.response?.status && errorHandlers[err.response.status]) {
-      errorHandlers[err.response.status]();
-    } else if (err.message === "Network Error") {
-      errorHandlers.Network();
-    } else {
-      showFancyAlert(
-        err.response?.data?.message ||
-          "❌ Failed to save event. Please try again.",
-        "error"
-      );
     }
   };
 
@@ -248,36 +337,132 @@ export default function CreateEventForm({
 
   const updateImage = (imageUrl: string) => {
     setFormData((prev) => ({ ...prev, image: imageUrl }));
+    toast.success("Image uploaded successfully!", {
+      style: {
+        background: 'linear-gradient(to right, #96A78D, #889c7e)',
+        color: '#fff',
+        border: '1px solid rgba(255, 255, 255, 0.2)',
+      },
+      icon: '🖼️',
+      duration: 2000,
+    });
   };
 
   const nextStep = () => {
-    if (currentStep < totalSteps) setCurrentStep(currentStep + 1);
+    if (currentStep < totalSteps) {
+      setCurrentStep(currentStep + 1);
+      toast.success(`Moving to step ${currentStep + 1}`, {
+        style: {
+          background: 'linear-gradient(to right, #234C6A, #1a3d57)',
+          color: '#fff',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+        },
+        icon: '👉',
+        duration: 1500,
+      });
+    }
   };
 
   const prevStep = () => {
-    if (currentStep > 1) setCurrentStep(currentStep - 1);
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    }
   };
 
   if (authLoading || !currentUser) {
     return (
-      <LoadingScreen
-        message={
-          authLoading
-            ? "Loading authentication..."
-            : "Checking authentication..."
-        }
-      />
+      <div className="bg-gradient-to-br from-[#234C6A]/95 via-[#1a3d57] to-[#152a3d] min-h-screen">
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 3000,
+            style: {
+              background: 'linear-gradient(to right, #234C6A, #1a3d57)',
+              color: '#fff',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              backdropFilter: 'blur(10px)',
+            },
+          }}
+        />
+        <div className="flex justify-center items-center min-h-screen">
+          <div className="text-center">
+            <div className="relative mx-auto mb-6">
+              <div className="border-4 border-cyan-500/30 border-t-cyan-500 rounded-full w-16 h-16 animate-spin"></div>
+              <div className="absolute inset-0 flex justify-center items-center">
+                <div className="bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full w-8 h-8 animate-pulse"></div>
+              </div>
+            </div>
+            <p className="font-medium text-white/70 text-lg">
+              {authLoading
+                ? "Loading authentication..."
+                : "Checking authentication..."}
+            </p>
+          </div>
+        </div>
+      </div>
     );
   }
 
   if (currentUser.role !== "host" && currentUser.role !== "admin") {
-    return <AccessDeniedScreen router={router} />;
+    return (
+      <div className="bg-gradient-to-br from-[#234C6A]/95 via-[#1a3d57] to-[#152a3d] min-h-screen">
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 3000,
+            style: {
+              background: 'linear-gradient(to right, #234C6A, #1a3d57)',
+              color: '#fff',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              backdropFilter: 'blur(10px)',
+            },
+          }}
+        />
+        <div className="flex justify-center items-center min-h-screen">
+          <div className="p-8 max-w-md text-center">
+            <div className="inline-flex justify-center items-center bg-gradient-to-r from-red-500/10 to-rose-500/10 mb-6 p-6 border border-red-500/20 rounded-2xl">
+              <Shield className="w-16 h-16 text-red-400" />
+            </div>
+            <h2 className="mb-3 font-bold text-white text-2xl">Access Restricted</h2>
+            <p className="mb-6 text-white/70">
+              You need host privileges to create events. Please contact an administrator or update your account settings.
+            </p>
+            <div className="flex sm:flex-row flex-col justify-center gap-3">
+              <button
+                onClick={() => router.push("/profile")}
+                className="bg-gradient-to-r from-[#96A78D] to-[#D2C1B6] hover:opacity-90 px-6 py-3 rounded-xl font-medium text-white hover:scale-[1.02] transition-opacity"
+              >
+                Go to Profile
+              </button>
+              <button
+                onClick={() => router.push("/")}
+                className="bg-white/10 hover:bg-white/15 px-6 py-3 border border-white/20 rounded-xl font-medium text-white hover:scale-[1.02] transition-colors"
+              >
+                Return Home
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="bg-gradient-to-br from-[#234C6A]/95 via-[#1a3d57] to-[#152a3d] min-h-screen">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: 'linear-gradient(to right, #234C6A, #1a3d57)',
+            color: '#fff',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            backdropFilter: 'blur(10px)',
+          },
+        }}
+      />
+      
       <div className="mx-auto px-4 py-8 max-w-6xl">
-        {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
             <div className={`p-2.5 rounded-lg ${eventId ? 'bg-gradient-to-r from-amber-500/20 to-orange-500/20' : 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20'}`}>
@@ -299,7 +484,6 @@ export default function CreateEventForm({
             </div>
           </div>
 
-          {/* Progress Steps */}
           <div className="mb-8">
             <div className="flex justify-between items-center mb-3">
               <span className="font-medium text-white/70 text-sm">
@@ -321,9 +505,7 @@ export default function CreateEventForm({
         </div>
 
         <div className="gap-6 grid lg:grid-cols-3">
-          {/* Left Column - User Info & Steps */}
           <div className="space-y-6 lg:col-span-1">
-            {/* User Info Card */}
             <div className="bg-white/5 backdrop-blur-sm p-5 border border-white/10 rounded-xl">
               <div className="flex items-center gap-3 mb-4">
                 <div className="bg-gradient-to-r from-[#96A78D]/20 to-[#D2C1B6]/20 p-2 rounded-lg">
@@ -358,7 +540,6 @@ export default function CreateEventForm({
               </div>
             </div>
 
-            {/* Step Navigation */}
             <div className="bg-white/5 backdrop-blur-sm p-5 border border-white/10 rounded-xl">
               <h3 className="mb-4 font-semibold text-white">Event Creation Steps</h3>
               <div className="space-y-3">
@@ -369,7 +550,18 @@ export default function CreateEventForm({
                 ].map(({ step, title, desc }) => (
                   <button
                     key={step}
-                    onClick={() => setCurrentStep(step)}
+                    onClick={() => {
+                      setCurrentStep(step);
+                      toast.success(`Switched to step ${step}`, {
+                        style: {
+                          background: 'linear-gradient(to right, #234C6A, #1a3d57)',
+                          color: '#fff',
+                          border: '1px solid rgba(255, 255, 255, 0.2)',
+                        },
+                        icon: '📋',
+                        duration: 1500,
+                      });
+                    }}
                     className={`w-full text-left p-3 rounded-lg transition-all ${currentStep === step ? 'bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/20' : 'hover:bg-white/5'}`}
                   >
                     <div className="flex items-center gap-3">
@@ -390,7 +582,6 @@ export default function CreateEventForm({
               </div>
             </div>
 
-            {/* Tips Card */}
             <div className="bg-gradient-to-br from-[#96A78D]/10 to-[#D2C1B6]/10 backdrop-blur-sm p-5 border border-[#96A78D]/20 rounded-xl">
               <div className="flex items-start gap-3 mb-3">
                 <AlertCircle className="mt-0.5 w-5 h-5 text-[#96A78D]" />
@@ -419,10 +610,8 @@ export default function CreateEventForm({
             </div>
           </div>
 
-          {/* Right Column - Form */}
           <div className="lg:col-span-2">
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Form Content */}
               <div className="bg-white/5 backdrop-blur-sm p-6 border border-white/10 rounded-xl">
                 {currentStep === 1 && (
                   <div className="space-y-6">
@@ -478,7 +667,18 @@ export default function CreateEventForm({
                       <EventImageUploader
                         currentImage={formData.image}
                         onImageUploaded={updateImage}
-                        onImageRemoved={() => updateImage("")}
+                        onImageRemoved={() => {
+                          updateImage("");
+                          toast.success("Image removed", {
+                            style: {
+                              background: 'linear-gradient(to right, #234C6A, #1a3d57)',
+                              color: '#fff',
+                              border: '1px solid rgba(255, 255, 255, 0.2)',
+                            },
+                            icon: '🗑️',
+                            duration: 2000,
+                          });
+                        }}
                       />
                       
                       <div className="bg-white/5 p-5 border border-white/10 rounded-xl">
@@ -507,7 +707,6 @@ export default function CreateEventForm({
                 )}
               </div>
 
-              {/* Navigation Buttons */}
               <div className="flex justify-between items-center pt-6 border-white/10 border-t">
                 <div className="flex items-center gap-3">
                   {currentStep > 1 && (
@@ -534,7 +733,7 @@ export default function CreateEventForm({
                     <button
                       type="submit"
                       disabled={loading || !currentToken}
-                      className="group flex items-center gap-2 bg-gradient-to-r from-[#96A78D] hover:from-[#96A78D]/90 to-[#D2C1B6] hover:to-[#D2C1B6]/90 disabled:opacity-50 px-8 py-3 rounded-xl font-medium text-white text-sm transition-all disabled:cursor-not-allowed"
+                      className="group flex items-center gap-2 bg-gradient-to-r from-[#96A78D] hover:from-[#96A78D]/90 to-[#D2C1B6] hover:to-[#D2C1B6]/90 disabled:opacity-50 px-8 py-3 rounded-xl font-medium text-white text-sm hover:scale-[1.02] active:scale-95 transition-all disabled:cursor-not-allowed"
                     >
                       {loading ? (
                         <>
@@ -560,8 +759,55 @@ export default function CreateEventForm({
                   <button
                     type="button"
                     onClick={() => {
-                      showFancyAlert("Event creation cancelled", "info");
-                      setTimeout(() => router.back(), 500);
+                      toast.custom((t) => (
+                        <div
+                          className={`${
+                            t.visible ? 'animate-enter' : 'animate-leave'
+                          } max-w-md w-full bg-gradient-to-r from-[#234C6A] to-[#1a3d57] shadow-lg rounded-lg pointer-events-auto flex ring-1 ring-white/20`}
+                        >
+                          <div className="flex-1 p-4 w-0">
+                            <div className="flex items-start">
+                              <div className="flex-shrink-0 pt-0.5">
+                                <AlertCircle className="w-6 h-6 text-white/70" />
+                              </div>
+                              <div className="flex-1 ml-3">
+                                <p className="font-medium text-white text-sm">
+                                  Cancel Event Creation
+                                </p>
+                                <p className="mt-1 text-white/70 text-sm">
+                                  Are you sure you want to cancel? All unsaved changes will be lost.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex border-white/20 border-l">
+                            <button
+                              onClick={() => {
+                                toast.dismiss(t.id);
+                                toast.success("Event creation cancelled", {
+                                  style: {
+                                    background: 'linear-gradient(to right, #234C6A, #1a3d57)',
+                                    color: '#fff',
+                                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                                  },
+                                  icon: '👋',
+                                  duration: 2000,
+                                });
+                                setTimeout(() => router.back(), 500);
+                              }}
+                              className="flex justify-center items-center hover:bg-white/10 p-4 border border-transparent rounded-none rounded-r-lg w-full font-medium text-white text-sm"
+                            >
+                              Yes, Cancel
+                            </button>
+                            <button
+                              onClick={() => toast.dismiss(t.id)}
+                              className="flex justify-center items-center hover:bg-white/10 p-4 border border-transparent rounded-none rounded-r-lg w-full font-medium text-white/70 hover:text-white text-sm"
+                            >
+                              Continue Editing
+                            </button>
+                          </div>
+                        </div>
+                      ));
                     }}
                     className="bg-white/10 hover:bg-white/15 px-6 py-3 border border-white/20 rounded-xl font-medium text-white/80 hover:text-white text-sm transition-colors"
                   >
@@ -576,45 +822,3 @@ export default function CreateEventForm({
     </div>
   );
 }
-
-const LoadingScreen = ({ message }: { message: string }) => (
-  <div className="flex justify-center items-center bg-gradient-to-br from-[#234C6A]/95 via-[#1a3d57] to-[#152a3d] min-h-screen">
-    <div className="text-center">
-      <div className="relative mx-auto mb-6">
-        <div className="border-4 border-cyan-500/30 border-t-cyan-500 rounded-full w-16 h-16 animate-spin"></div>
-        <div className="absolute inset-0 flex justify-center items-center">
-          <div className="bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full w-8 h-8 animate-pulse"></div>
-        </div>
-      </div>
-      <p className="font-medium text-white/70 text-lg">{message}</p>
-    </div>
-  </div>
-);
-
-const AccessDeniedScreen = ({ router }: { router: any }) => (
-  <div className="flex justify-center items-center bg-gradient-to-br from-[#234C6A]/95 via-[#1a3d57] to-[#152a3d] min-h-screen">
-    <div className="p-8 max-w-md text-center">
-      <div className="inline-flex justify-center items-center bg-gradient-to-r from-red-500/10 to-rose-500/10 mb-6 p-6 border border-red-500/20 rounded-2xl">
-        <Shield className="w-16 h-16 text-red-400" />
-      </div>
-      <h2 className="mb-3 font-bold text-white text-2xl">Access Restricted</h2>
-      <p className="mb-6 text-white/70">
-        You need host privileges to create events. Please contact an administrator or update your account settings.
-      </p>
-      <div className="flex sm:flex-row flex-col justify-center gap-3">
-        <button
-          onClick={() => router.push("/profile")}
-          className="bg-gradient-to-r from-[#96A78D] to-[#D2C1B6] hover:opacity-90 px-6 py-3 rounded-xl font-medium text-white transition-opacity"
-        >
-          Go to Profile
-        </button>
-        <button
-          onClick={() => router.push("/")}
-          className="bg-white/10 hover:bg-white/15 px-6 py-3 border border-white/20 rounded-xl font-medium text-white transition-colors"
-        >
-          Return Home
-        </button>
-      </div>
-    </div>
-  </div>
-);

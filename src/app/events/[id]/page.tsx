@@ -16,11 +16,16 @@ import {
   AlertCircle,
   CheckCircle,
   XCircle,
-  MessageSquare,
-  ArrowLeft
+  ArrowLeft,
+  Star,
+  TrendingUp,
+  Users as UsersIcon,
+  Grid,
+  Compass,
+  Loader2
 } from 'lucide-react';
-import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 
 export default function EventDetailsPage() {
   const { id } = useParams();
@@ -35,7 +40,6 @@ export default function EventDetailsPage() {
   const [showParticipants, setShowParticipants] = useState(false);
   const [canJoinInfo, setCanJoinInfo] = useState<{canJoin: boolean; reasons: string[]} | null>(null);
 
-  // Fetch event details
   useEffect(() => {
     fetchEventDetails();
     if (user) {
@@ -90,7 +94,6 @@ export default function EventDetailsPage() {
       setJoining(true);
 
       if (event?.joiningFee === 0) {
-        // Free event - join directly
         const response = await fetch(`http://localhost:5000/api/payments/free-join`, {
           method: 'POST',
           headers: {
@@ -110,7 +113,6 @@ export default function EventDetailsPage() {
           alert(data.message || 'Failed to join event');
         }
       } else {
-        // Paid event - redirect to payment
         router.push(`/payment/${id}`);
       }
     } catch (err) {
@@ -177,23 +179,23 @@ export default function EventDetailsPage() {
 
     const statusConfig: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
       open: { 
-        bg: 'bg-green-100', 
-        text: 'text-green-800',
+        bg: 'bg-gradient-to-r from-[#96A78D] to-[#889c7e]', 
+        text: 'text-white',
         icon: <CheckCircle className="w-4 h-4" />
       },
       full: { 
-        bg: 'bg-red-100', 
-        text: 'text-red-800',
+        bg: 'bg-gradient-to-r from-[#D2C1B6] to-[#c4b1a6]', 
+        text: 'text-white',
         icon: <XCircle className="w-4 h-4" />
       },
       cancelled: { 
-        bg: 'bg-gray-100', 
-        text: 'text-gray-800',
+        bg: 'bg-gradient-to-r from-white/20 to-white/10', 
+        text: 'text-white/80',
         icon: <XCircle className="w-4 h-4" />
       },
       completed: { 
-        bg: 'bg-blue-100', 
-        text: 'text-blue-800',
+        bg: 'bg-gradient-to-r from-[#234C6A] to-[#1a3d57]', 
+        text: 'text-white',
         icon: <CheckCircle className="w-4 h-4" />
       }
     };
@@ -201,19 +203,23 @@ export default function EventDetailsPage() {
     const config = statusConfig[event.status] || statusConfig.open;
 
     return (
-      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${config.bg} ${config.text}`}>
+      <span className={`inline-flex items-center gap-2 shadow-lg backdrop-blur-sm px-4 py-2 border-2 border-white/30 rounded-full font-bold text-sm ${config.bg} ${config.text}`}>
         {config.icon}
-        <span className="ml-1">{event.status.toUpperCase()}</span>
+        {event.status.toUpperCase()}
       </span>
     );
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center bg-gray-50 min-h-screen">
-        <div className="text-center">
-          <Loader2 className="mx-auto mb-4 w-12 h-12 text-blue-600 animate-spin" />
-          <p className="text-gray-600">Loading event details...</p>
+      <div className="bg-gradient-to-b from-[#234C6A] via-[#1a3d57] to-[#152a3d] min-h-screen">
+        <div className="flex flex-col justify-center items-center py-32">
+          <div className="relative mb-8">
+            <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-white/5 blur-xl rounded-full"></div>
+            <Loader2 className="relative w-16 h-16 text-white animate-spin" />
+          </div>
+          <p className="mb-2 font-bold text-white text-2xl">Loading Event Details</p>
+          <p className="text-white/60">We're preparing the perfect experience for you</p>
         </div>
       </div>
     );
@@ -221,184 +227,199 @@ export default function EventDetailsPage() {
 
   if (error || !event) {
     return (
-      <div className="bg-gray-50 py-8 min-h-screen">
-        <div className="mx-auto px-4 max-w-7xl">
-          <div className="py-12 text-center">
-            <AlertCircle className="mx-auto mb-4 w-16 h-16 text-red-500" />
-            <h2 className="mb-2 font-bold text-gray-900 text-2xl">Event Not Found</h2>
-            <p className="mb-6 text-gray-600">{error || 'The event you are looking for does not exist.'}</p>
+      <div className="bg-gradient-to-b from-[#234C6A] via-[#1a3d57] to-[#152a3d] min-h-screen">
+        <div className="mx-auto px-4 sm:px-6 lg:px-8 py-24 max-w-7xl">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mx-auto max-w-2xl text-center"
+          >
+            <div className="inline-flex justify-center items-center mb-8">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-white/5 blur-xl rounded-full"></div>
+                <div className="relative bg-white/10 backdrop-blur-sm p-6 border border-white/20 rounded-2xl">
+                  <AlertCircle className="w-12 h-12 text-white" />
+                </div>
+              </div>
+            </div>
+            <h1 className="bg-clip-text bg-gradient-to-r from-white via-white/90 to-white/70 mb-4 font-bold text-transparent text-4xl tracking-tight">
+              Event Not Found
+            </h1>
+            <p className="mb-8 text-white/70 text-lg leading-relaxed">
+              {error || 'The event you are looking for does not exist.'}
+            </p>
             <Link
               href="/events"
-              className="inline-flex items-center bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg text-white transition"
+              className="group inline-flex relative items-center gap-3 bg-white/10 hover:bg-white/20 hover:shadow-xl backdrop-blur-sm px-8 py-4 border border-white/20 rounded-xl font-bold text-white text-lg transition-all duration-300"
             >
-              <ArrowLeft className="mr-2 w-4 h-4" />
-              Browse Events
+              <ArrowLeft className="w-5 h-5" />
+              <span>Back to Events</span>
             </Link>
-          </div>
+          </motion.div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-50 py-8 min-h-screen">
-      <div className="mx-auto px-4 max-w-7xl">
-        {/* Back Button */}
-        <div className="mb-6">
-          <Link
-            href="/events"
-            className="inline-flex items-center text-gray-600 hover:text-gray-900"
-          >
-            <ArrowLeft className="mr-2 w-4 h-4" />
-            Back to Events
-          </Link>
-        </div>
-
-        <div className="gap-8 grid grid-cols-1 lg:grid-cols-3">
-          {/* Left Column - Event Details */}
-          <div className="lg:col-span-2">
-            {/* Event Header */}
-            <div className="bg-white shadow-lg mb-6 p-6 rounded-xl">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    {getStatusBadge()}
-                    <span className="bg-purple-100 px-3 py-1 rounded-full font-medium text-purple-800 text-sm">
-                      {event.category}
-                    </span>
-                  </div>
-                  <h1 className="mb-2 font-bold text-gray-900 text-3xl">{event.title}</h1>
-                </div>
-                <div className="flex space-x-2">
-                  <button className="hover:bg-gray-100 p-2 rounded-lg">
-                    <Heart className="w-5 h-5 text-gray-500" />
-                  </button>
-                  <button className="hover:bg-gray-100 p-2 rounded-lg">
-                    <Share2 className="w-5 h-5 text-gray-500" />
-                  </button>
-                </div>
+    <div className="bg-gradient-to-b from-[#234C6A] via-[#1a3d57] to-[#152a3d] min-h-screen">
+      <div className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-[#234C6A]/30 via-[#D2C1B6]/20 to-[#96A78D]/30 backdrop-blur-xl" />
+        <div className="relative mx-auto px-4 sm:px-6 lg:px-8 py-8 max-w-7xl">
+          <div className="flex lg:flex-row flex-col justify-between items-start lg:items-center gap-6 mb-8">
+            <div>
+              <Link
+                href="/events"
+                className="group inline-flex items-center gap-2 mb-4 text-white/60 hover:text-white text-sm"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Back to Events</span>
+              </Link>
+              <h1 className="font-bold text-4xl lg:text-5xl tracking-tight">
+                <span className="block bg-clip-text bg-gradient-to-r from-white via-white/95 to-white/80 text-transparent">
+                  {event.title}
+                </span>
+              </h1>
+              <div className="flex items-center gap-3 mt-4">
+                {getStatusBadge()}
+                <span className="bg-gradient-to-r from-[#D2C1B6] to-[#c4b1a6] shadow-lg backdrop-blur-sm px-4 py-2 border-2 border-white/30 rounded-full font-bold text-white text-sm">
+                  {event.category}
+                </span>
               </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <button className="bg-white/10 hover:bg-white/20 shadow-lg backdrop-blur-sm p-3 border-2 border-white/20 rounded-xl transition-all">
+                <Heart className="w-5 h-5 text-white" />
+              </button>
+              <button className="bg-white/10 hover:bg-white/20 shadow-lg backdrop-blur-sm p-3 border-2 border-white/20 rounded-xl transition-all">
+                <Share2 className="w-5 h-5 text-white" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
 
-              {/* Event Image */}
-              <div className="relative bg-gradient-to-r from-blue-500 to-purple-600 mb-6 rounded-lg h-64 md:h-80 overflow-hidden">
-                {event.image ? (
-                  <img
-                    src={event.image}
-                    alt={event.title}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="flex justify-center items-center w-full h-full">
-                    <div className="text-8xl">
-                      {event.eventType === 'concert' && '🎵'}
-                      {event.eventType === 'hiking' && '🥾'}
-                      {event.eventType === 'sports' && '⚽'}
-                      {event.eventType === 'games' && '🎮'}
-                      {event.eventType === 'tech' && '💻'}
-                      {event.eventType === 'art' && '🎨'}
-                      {!['concert', 'hiking', 'sports', 'games', 'tech', 'art'].includes(event.eventType) && '🎪'}
+      <div className="mx-auto px-4 sm:px-6 lg:px-8 pb-12 max-w-7xl">
+        <div className="gap-8 grid grid-cols-1 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <div className="bg-white/5 shadow-2xl backdrop-blur-xl mb-8 border-2 border-white/20 rounded-2xl overflow-hidden">
+              <div className="p-8">
+                <h2 className="mb-6 font-bold text-white text-2xl">Event Overview</h2>
+                <div className="relative bg-gradient-to-br from-[#234C6A] via-[#D2C1B6] to-[#96A78D] mb-8 rounded-xl h-64 overflow-hidden">
+                  {event.image ? (
+                    <img
+                      src={event.image}
+                      alt={event.title}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex justify-center items-center w-full h-full">
+                      <div className="opacity-50 text-9xl">
+                        {event.eventType === 'concert' && '🎵'}
+                        {event.eventType === 'hiking' && '🥾'}
+                        {event.eventType === 'sports' && '⚽'}
+                        {event.eventType === 'games' && '🎮'}
+                        {event.eventType === 'tech' && '💻'}
+                        {event.eventType === 'art' && '🎨'}
+                        {!['concert', 'hiking', 'sports', 'games', 'tech', 'art'].includes(event.eventType) && '🎪'}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="gap-6 grid grid-cols-1 md:grid-cols-2 mb-8">
+                  <div className="space-y-4">
+                    <div className="flex items-center bg-white/5 p-4 rounded-xl">
+                      <div className="bg-gradient-to-br from-[#234C6A] to-[#1a3d57] shadow-lg mr-4 p-3 rounded-lg">
+                        <Calendar className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <div className="text-white/60 text-sm">Date</div>
+                        <div className="font-bold text-white">{formatDate(event.date)}</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center bg-white/5 p-4 rounded-xl">
+                      <div className="bg-gradient-to-br from-[#D2C1B6] to-[#c4b1a6] shadow-lg mr-4 p-3 rounded-lg">
+                        <Clock className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <div className="text-white/60 text-sm">Time</div>
+                        <div className="font-bold text-white">{event.time}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center bg-white/5 p-4 rounded-xl">
+                      <div className="bg-gradient-to-br from-[#234C6A] to-[#D2C1B6] shadow-lg mr-4 p-3 rounded-lg">
+                        <MapPin className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <div className="text-white/60 text-sm">Location</div>
+                        <div className="font-bold text-white">{event.location}</div>
+                        <div className="text-white/60 text-sm">{event.address}</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center bg-white/5 p-4 rounded-xl">
+                      <div className="bg-gradient-to-br from-[#96A78D] to-[#889c7e] shadow-lg mr-4 p-3 rounded-lg">
+                        <DollarSign className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <div className="text-white/60 text-sm">Joining Fee</div>
+                        <div className={`font-bold text-xl ${event.joiningFee === 0 ? 'text-[#96A78D]' : 'text-white'}`}>
+                          {event.joiningFee === 0 ? 'FREE' : `$${event.joiningFee.toFixed(2)}`}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mb-8">
+                  <h3 className="mb-4 font-bold text-white text-xl">Description</h3>
+                  <div className="bg-white/5 p-6 rounded-xl">
+                    <p className="text-white/80 leading-relaxed whitespace-pre-line">{event.description}</p>
+                  </div>
+                </div>
+
+                {event.tags.length > 0 && (
+                  <div>
+                    <h3 className="mb-4 font-bold text-white text-xl">Tags</h3>
+                    <div className="flex flex-wrap gap-3">
+                      {event.tags.map((tag, index) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center gap-2 bg-gradient-to-r from-white/15 to-white/5 shadow-lg backdrop-blur-sm px-4 py-2 border-2 border-white/20 rounded-full font-medium text-white"
+                        >
+                          <Tag className="w-3 h-3" />
+                          {tag}
+                        </span>
+                      ))}
                     </div>
                   </div>
                 )}
               </div>
-
-              {/* Event Info Grid */}
-              <div className="gap-6 grid grid-cols-1 md:grid-cols-2 mb-8">
-                <div className="space-y-4">
-                  <div className="flex items-center">
-                    <Calendar className="mr-3 w-5 h-5 text-blue-600" />
-                    <div>
-                      <div className="text-gray-500 text-sm">Date</div>
-                      <div className="font-medium">{formatDate(event.date)}</div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center">
-                    <Clock className="mr-3 w-5 h-5 text-blue-600" />
-                    <div>
-                      <div className="text-gray-500 text-sm">Time</div>
-                      <div className="font-medium">{event.time}</div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center">
-                    <DollarSign className="mr-3 w-5 h-5 text-green-600" />
-                    <div>
-                      <div className="text-gray-500 text-sm">Joining Fee</div>
-                      <div className={`font-bold ${event.joiningFee === 0 ? 'text-green-600' : 'text-gray-900'}`}>
-                        {event.joiningFee === 0 ? 'FREE' : `$${event.joiningFee.toFixed(2)}`}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-center">
-                    <MapPin className="mr-3 w-5 h-5 text-red-600" />
-                    <div>
-                      <div className="text-gray-500 text-sm">Location</div>
-                      <div className="font-medium">{event.location}</div>
-                      <div className="text-gray-600 text-sm">{event.address}</div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center">
-                    <Users className="mr-3 w-5 h-5 text-purple-600" />
-                    <div>
-                      <div className="text-gray-500 text-sm">Participants</div>
-                      <div className="font-medium">
-                        {event.currentParticipants} / {event.maxParticipants}
-                        <span className="ml-2 text-gray-600 text-sm">
-                          ({Math.round((event.currentParticipants / event.maxParticipants) * 100)}% filled)
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Event Description */}
-              <div className="mb-8">
-                <h3 className="mb-4 font-bold text-gray-900 text-xl">Description</h3>
-                <div className="max-w-none prose">
-                  <p className="text-gray-700 whitespace-pre-line">{event.description}</p>
-                </div>
-              </div>
-
-              {/* Event Tags */}
-              {event.tags.length > 0 && (
-                <div className="mb-8">
-                  <h3 className="mb-4 font-bold text-gray-900 text-xl">Tags</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {event.tags.map((tag, index) => (
-                      <span
-                        key={index}
-                        className="inline-flex items-center bg-gray-100 px-3 py-1 rounded-full text-gray-800"
-                      >
-                        <Tag className="mr-1 w-3 h-3" />
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
-          {/* Right Column - Actions & Host Info */}
           <div className="space-y-6">
-            {/* Action Card */}
-            <div className="top-6 sticky bg-white shadow-lg p-6 rounded-xl">
-              <h3 className="mb-4 font-bold text-gray-900 text-xl">Join This Event</h3>
+            <div className="top-8 sticky bg-white/5 shadow-2xl backdrop-blur-xl p-6 border-2 border-white/20 rounded-2xl">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="bg-gradient-to-br from-[#234C6A] to-[#D2C1B6] shadow-lg p-3 rounded-xl">
+                  <CheckCircle className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="font-bold text-white text-xl">Join Event</h3>
+              </div>
               
-              {/* Join Status Info */}
               {canJoinInfo && !canJoinInfo.canJoin && canJoinInfo.reasons.length > 0 && (
-                <div className="bg-red-50 mb-4 p-3 border border-red-200 rounded-lg">
+                <div className="bg-gradient-to-r from-white/10 to-white/5 mb-6 p-4 border-2 border-white/20 rounded-xl">
                   <div className="flex items-start">
-                    <AlertCircle className="flex-shrink-0 mt-0.5 mr-2 w-5 h-5 text-red-500" />
+                    <AlertCircle className="flex-shrink-0 mt-0.5 mr-3 w-5 h-5 text-white/60" />
                     <div className="text-sm">
-                      <p className="font-medium text-red-800">Cannot join because:</p>
-                      <ul className="mt-1 text-red-700 list-disc list-inside">
+                      <p className="font-bold text-white">Cannot join because:</p>
+                      <ul className="mt-2 text-white/60 list-disc list-inside">
                         {canJoinInfo.reasons.map((reason, index) => (
                           <li key={index}>{reason}</li>
                         ))}
@@ -408,14 +429,13 @@ export default function EventDetailsPage() {
                 </div>
               )}
 
-              {/* Action Buttons */}
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {isUserHost() ? (
                   <div className="py-4 text-center">
-                    <p className="mb-2 text-gray-600">You are the host of this event</p>
+                    <p className="mb-4 text-white/60">You are the host of this event</p>
                     <Link
                       href={`/events/edit/${event._id}`}
-                      className="inline-block bg-blue-600 hover:bg-blue-700 px-4 py-3 rounded-lg w-full font-medium text-white transition"
+                      className="inline-block bg-gradient-to-r from-[#234C6A] hover:from-[#1a3d57] to-[#1a3d57] hover:to-[#152a3d] shadow-lg backdrop-blur-sm px-6 py-4 border-2 border-white/20 rounded-xl w-full font-bold text-white hover:scale-[1.02] transition-all"
                     >
                       Manage Event
                     </Link>
@@ -425,93 +445,120 @@ export default function EventDetailsPage() {
                     <button
                       onClick={handleLeaveEvent}
                       disabled={leaving}
-                      className="bg-red-600 hover:bg-red-700 disabled:opacity-50 px-4 py-3 rounded-lg w-full font-medium text-white transition disabled:cursor-not-allowed"
+                      className="bg-gradient-to-r from-white/10 hover:from-white/20 to-white/5 hover:to-white/10 disabled:opacity-50 shadow-lg backdrop-blur-sm px-6 py-4 border-2 border-white/20 rounded-xl w-full font-bold text-white transition-all disabled:cursor-not-allowed"
                     >
                       {leaving ? 'Leaving...' : 'Leave Event'}
                     </button>
-                    <p className="font-medium text-green-600 text-center">
-                      ✓ You are attending this event
-                    </p>
+                    <div className="flex justify-center items-center gap-2 text-[#96A78D]">
+                      <CheckCircle className="w-5 h-5" />
+                      <span className="font-bold">You are attending</span>
+                    </div>
                   </>
                 ) : (
                   <button
                     onClick={handleJoinEvent}
                     disabled={joining || (canJoinInfo && !canJoinInfo.canJoin)}
-                    className={`w-full px-4 py-3 rounded-lg transition font-medium ${
+                    className={`w-full px-6 py-4 rounded-xl shadow-lg backdrop-blur-sm border-2 border-white/20 font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] ${
                       event.joiningFee === 0
-                        ? 'bg-green-600 hover:bg-green-700 text-white'
-                        : 'bg-blue-600 hover:bg-blue-700 text-white'
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        ? 'bg-gradient-to-r from-[#96A78D] to-[#889c7e] hover:from-[#889c7e] hover:to-[#96A78D] text-white'
+                        : 'bg-gradient-to-r from-[#234C6A] to-[#D2C1B6] hover:from-[#D2C1B6] hover:to-[#234C6A] text-white'
+                    }`}
                   >
                     {joining ? 'Processing...' : event.joiningFee === 0 ? 'Join for Free' : 'Join Event'}
                   </button>
                 )}
 
                 {event.joiningFee > 0 && !isUserParticipant() && !isUserHost() && (
-                  <div className="mt-2 text-gray-600 text-sm text-center">
-                    ${event.joiningFee.toFixed(2)} per person
+                  <div className="text-center">
+                    <span className="inline-flex items-center gap-2 bg-white/10 shadow-lg backdrop-blur-sm px-4 py-2 border-2 border-white/20 rounded-full font-bold text-white text-sm">
+                      <DollarSign className="w-4 h-4" />
+                      ${event.joiningFee.toFixed(2)} per person
+                    </span>
                   </div>
                 )}
               </div>
 
-              {/* Event Stats */}
-              <div className="mt-6 pt-6 border-t">
-                <div className="gap-4 grid grid-cols-2">
-                  <div className="text-center">
-                    <div className="font-bold text-gray-900 text-2xl">{event.currentParticipants}</div>
-                    <div className="text-gray-600 text-sm">Joined</div>
+              <div className="mt-6 pt-6 border-white/20 border-t">
+                <div className="flex justify-between items-center mb-4">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-5 h-5 text-white/60" />
+                    <span className="font-bold text-white">Participants</span>
                   </div>
-                  <div className="text-center">
-                    <div className="font-bold text-gray-900 text-2xl">{event.maxParticipants}</div>
-                    <div className="text-gray-600 text-sm">Capacity</div>
-                  </div>
+                  <span className="font-bold text-white">
+                    {event.currentParticipants}/{event.maxParticipants}
+                  </span>
+                </div>
+                <div className="relative bg-white/10 rounded-full h-2">
+                  <div 
+                    className="top-0 left-0 absolute bg-gradient-to-r from-[#234C6A] to-[#96A78D] rounded-full h-full transition-all duration-300"
+                    style={{ width: `${(event.currentParticipants / event.maxParticipants) * 100}%` }}
+                  />
                 </div>
               </div>
             </div>
 
-            {/* Host Card */}
-            <div className="bg-white shadow-lg p-6 rounded-xl">
-              <h3 className="mb-4 font-bold text-gray-900 text-xl">Hosted By</h3>
-              <div className="flex items-center mb-4">
-                <div className="flex justify-center items-center bg-blue-100 mr-4 rounded-full w-16 h-16">
-                  {event.host.avatar ? (
-                    <img
-                      src={event.host.avatar}
-                      alt={event.host.name}
-                      className="rounded-full w-16 h-16"
-                    />
-                  ) : (
-                    <span className="font-bold text-blue-600 text-2xl">
-                      {event.host.name.charAt(0)}
-                    </span>
-                  )}
+            <div className="bg-white/5 shadow-2xl backdrop-blur-xl p-6 border-2 border-white/20 rounded-2xl">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="bg-gradient-to-br from-[#D2C1B6] to-[#c4b1a6] shadow-lg p-3 rounded-xl">
+                  <Users className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="font-bold text-white text-xl">Hosted By</h3>
+              </div>
+              
+              <div className="flex items-center mb-6">
+                <div className="relative mr-4">
+                  <div className="absolute inset-0 bg-gradient-to-r from-[#234C6A] to-[#D2C1B6] blur-md rounded-full"></div>
+                  <div className="relative flex justify-center items-center bg-gradient-to-br from-[#234C6A] to-[#D2C1B6] shadow-lg rounded-full w-14 h-14">
+                    {event.host.avatar ? (
+                      <img
+                        src={event.host.avatar}
+                        alt={event.host.name}
+                        className="rounded-full w-14 h-14"
+                      />
+                    ) : (
+                      <span className="font-bold text-white text-xl">
+                        {event.host.name.charAt(0)}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div>
-                  <h4 className="font-bold text-lg">{event.host.name}</h4>
-                  <p className="text-gray-600">Event Host</p>
+                  <h4 className="font-bold text-white">{event.host.name}</h4>
+                  <p className="text-white/60 text-sm">Event Host</p>
                   {event.host.rating && (
                     <div className="flex items-center mt-1">
-                      <span className="text-yellow-500">⭐</span>
-                      <span className="ml-1 font-medium">{event.host.rating}</span>
+                      <div className="flex">
+                        {[...Array(5)].map((_, i) => (
+                          <Star 
+                            key={i} 
+                            className={`w-3 h-3 ${i < Math.floor(event.host.rating || 0) ? 'text-yellow-400' : 'text-white/30'}`} 
+                          />
+                        ))}
+                      </div>
+                      <span className="ml-2 font-medium text-white text-sm">{event.host.rating}</span>
                     </div>
                   )}
                 </div>
               </div>
               <Link
                 href={`/profile/${event.host._id}`}
-                className="block hover:bg-gray-50 px-4 py-2 border border-gray-300 rounded-lg w-full text-center transition"
+                className="block bg-white/10 hover:bg-white/20 shadow-lg backdrop-blur-sm px-6 py-3 border-2 border-white/20 rounded-xl w-full font-bold text-white text-center transition-all"
               >
                 View Profile
               </Link>
             </div>
 
-            {/* Participants Card */}
-            <div className="bg-white shadow-lg p-6 rounded-xl">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-gray-900 text-xl">Participants</h3>
+            <div className="bg-white/5 shadow-2xl backdrop-blur-xl p-6 border-2 border-white/20 rounded-2xl">
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="bg-gradient-to-br from-[#96A78D] to-[#889c7e] shadow-lg p-3 rounded-xl">
+                    <UsersIcon className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="font-bold text-white text-xl">Attendees</h3>
+                </div>
                 <button
                   onClick={() => setShowParticipants(!showParticipants)}
-                  className="font-medium text-blue-600 hover:text-blue-700"
+                  className="font-bold text-white hover:text-white/80 text-sm"
                 >
                   {showParticipants ? 'Hide' : 'Show All'}
                 </button>
@@ -520,37 +567,48 @@ export default function EventDetailsPage() {
               <div className="space-y-3">
                 {event.participants.slice(0, showParticipants ? undefined : 5).map((participant) => (
                   <div key={participant._id} className="flex items-center">
-                    <div className="flex justify-center items-center bg-gray-200 mr-3 rounded-full w-10 h-10">
-                      {participant.avatar ? (
-                        <img
-                          src={participant.avatar}
-                          alt={participant.name}
-                          className="rounded-full w-10 h-10"
-                        />
-                      ) : (
-                        <span className="font-medium text-gray-600">
-                          {participant.name.charAt(0)}
-                        </span>
-                      )}
+                    <div className="relative mr-3">
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-white/5 blur-md rounded-full"></div>
+                      <div className="relative flex justify-center items-center bg-gradient-to-br from-white/10 to-white/5 shadow-lg rounded-full w-10 h-10">
+                        {participant.avatar ? (
+                          <img
+                            src={participant.avatar}
+                            alt={participant.name}
+                            className="rounded-full w-10 h-10"
+                          />
+                        ) : (
+                          <span className="font-bold text-white text-sm">
+                            {participant.name.charAt(0)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div>
-                      <p className="font-medium">{participant.name}</p>
-                      <p className="text-gray-600 text-sm">{participant.location}</p>
+                      <p className="font-bold text-white text-sm">{participant.name}</p>
+                      <p className="text-white/60 text-xs">{participant.location}</p>
                     </div>
                   </div>
                 ))}
 
                 {event.participants.length === 0 && (
-                  <p className="py-4 text-gray-600 text-center">No participants yet</p>
+                  <div className="py-6 text-center">
+                    <div className="inline-flex justify-center items-center mb-3">
+                      <div className="bg-gradient-to-br from-white/10 to-white/5 p-3 rounded-xl">
+                        <UsersIcon className="w-6 h-6 text-white/40" />
+                      </div>
+                    </div>
+                    <p className="text-white/60 text-sm">No attendees yet</p>
+                  </div>
                 )}
 
                 {!showParticipants && event.participants.length > 5 && (
-                  <div className="pt-2 text-center">
+                  <div className="pt-3 text-center">
                     <button
                       onClick={() => setShowParticipants(true)}
-                      className="text-blue-600 hover:text-blue-700"
+                      className="inline-flex items-center gap-2 font-bold text-white hover:text-white/80 text-sm"
                     >
-                      + {event.participants.length - 5} more
+                      <span>+ {event.participants.length - 5} more</span>
+                      <TrendingUp className="w-3 h-3" />
                     </button>
                   </div>
                 )}
@@ -559,21 +617,39 @@ export default function EventDetailsPage() {
           </div>
         </div>
 
-        {/* Host's Other Events */}
-        <div className="mt-12">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="font-bold text-gray-900 text-2xl">More from {event.host.name}</h2>
-            <Link
-              href={`/events?hostId=${event.host._id}`}
-              className="font-medium text-blue-600 hover:text-blue-700"
-            >
-              View all events
-            </Link>
-          </div>
-          {/* This would typically fetch and display other events by the same host */}
-          <div className="bg-white p-6 border border-gray-300 border-dashed rounded-xl text-center">
-            <MessageSquare className="mx-auto mb-3 w-12 h-12 text-gray-400" />
-            <p className="text-gray-600">Other events by this host will appear here</p>
+        <div className="mt-8">
+          <div className="bg-white/5 shadow-2xl backdrop-blur-xl p-6 border-2 border-white/20 rounded-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="bg-gradient-to-br from-[#234C6A] to-[#96A78D] shadow-lg p-3 rounded-xl">
+                    <Grid className="w-6 h-6 text-white" />
+                  </div>
+                  <h2 className="font-bold text-white text-xl">More from Host</h2>
+                </div>
+                <p className="text-white/60 text-sm">Other events by {event.host.name}</p>
+              </div>
+              <Link
+                href={`/events?hostId=${event.host._id}`}
+                className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 shadow-lg backdrop-blur-sm px-4 py-2 border-2 border-white/20 rounded-xl font-bold text-white text-sm transition-all"
+              >
+                View all
+                <TrendingUp className="w-3 h-3" />
+              </Link>
+            </div>
+            
+            <div className="bg-gradient-to-br from-white/5 to-white/2 shadow-lg backdrop-blur-sm p-8 border-2 border-white/20 border-dashed rounded-xl text-center">
+              <div className="inline-flex justify-center items-center mb-4">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-white/5 blur-xl rounded-full"></div>
+                  <div className="relative bg-white/10 backdrop-blur-sm p-4 border border-white/20 rounded-2xl">
+                    <Compass className="w-8 h-8 text-white/40" />
+                  </div>
+                </div>
+              </div>
+              <h3 className="mb-2 font-bold text-white">More Events Coming Soon</h3>
+              <p className="text-white/60 text-sm">Other events by this host will appear here</p>
+            </div>
           </div>
         </div>
       </div>

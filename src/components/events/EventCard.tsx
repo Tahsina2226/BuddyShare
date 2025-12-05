@@ -2,21 +2,22 @@
 
 import Link from 'next/link';
 import { Event } from '@/types/event';
-import { Calendar, Users, MapPin, DollarSign, Clock } from 'lucide-react';
+import { Calendar, Users, MapPin, DollarSign, Clock, ChevronRight, Star, User } from 'lucide-react';
 
 interface EventCardProps {
   event: Event;
   showHost?: boolean;
+  variant?: 'default' | 'compact';
 }
 
-export default function EventCard({ event, showHost = true }: EventCardProps) {
+export default function EventCard({ event, showHost = true, variant = 'default' }: EventCardProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'open': return 'bg-green-100 text-green-800';
-      case 'full': return 'bg-red-100 text-red-800';
-      case 'cancelled': return 'bg-gray-100 text-gray-800';
-      case 'completed': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'open': return 'bg-gradient-to-r from-[#96A78D] to-[#D2C1B6]';
+      case 'full': return 'bg-gradient-to-r from-[#234C6A]/80 to-[#234C6A]/60';
+      case 'cancelled': return 'bg-gradient-to-r from-white/20 to-white/10';
+      case 'completed': return 'bg-gradient-to-r from-white/30 to-white/20';
+      default: return 'bg-gradient-to-r from-white/20 to-white/10';
     }
   };
 
@@ -31,31 +32,88 @@ export default function EventCard({ event, showHost = true }: EventCardProps) {
 
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
-      'Music': 'bg-purple-100 text-purple-800',
-      'Sports': 'bg-green-100 text-green-800',
-      'Food': 'bg-red-100 text-red-800',
-      'Tech': 'bg-blue-100 text-blue-800',
-      'Art': 'bg-yellow-100 text-yellow-800',
-      'Education': 'bg-indigo-100 text-indigo-800',
-      'Games': 'bg-pink-100 text-pink-800',
-      'Travel': 'bg-cyan-100 text-cyan-800'
+      'Music': 'bg-gradient-to-br from-[#96A78D] to-[#D2C1B6]',
+      'Sports': 'bg-gradient-to-br from-[#234C6A] to-[#96A78D]',
+      'Food': 'bg-gradient-to-br from-[#D2C1B6] to-[#96A78D]',
+      'Tech': 'bg-gradient-to-br from-[#234C6A] to-[#D2C1B6]',
+      'Art': 'bg-gradient-to-br from-[#D2C1B6] to-[#96A78D]',
+      'Education': 'bg-gradient-to-br from-[#234C6A] to-[#96A78D]',
+      'Games': 'bg-gradient-to-br from-[#D2C1B6] to-[#234C6A]',
+      'Travel': 'bg-gradient-to-br from-[#96A78D] to-[#234C6A]'
     };
-    return colors[category] || 'bg-gray-100 text-gray-800';
+    return colors[category] || 'bg-gradient-to-br from-[#234C6A] to-[#96A78D]';
   };
 
+  if (variant === 'compact') {
+    return (
+      <div className="group bg-gradient-to-br from-white/5 hover:from-white/10 to-white/10 hover:to-white/15 hover:shadow-lg hover:shadow-white/5 backdrop-blur-sm p-4 border border-white/20 rounded-xl hover:scale-[1.02] transition-all duration-300">
+        <div className="flex items-start gap-4">
+          <div className="flex-shrink-0">
+            <div className={`${getCategoryColor(event.category)} text-white rounded-lg p-3 text-center min-w-[70px] shadow-lg`}>
+              <div className="font-bold text-xl">{formatDate(event.date).split(',')[1]?.trim().split(' ')[1] || ''}</div>
+              <div className="text-xs uppercase tracking-wider">{formatDate(event.date).split(',')[1]?.trim().split(' ')[0] || ''}</div>
+            </div>
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex justify-between items-start mb-2">
+              <div>
+                <Link href={`/events/${event._id}`}>
+                  <h3 className="font-semibold text-white group-hover:text-white/90 text-base truncate transition-colors">
+                    {event.title}
+                  </h3>
+                </Link>
+                <p className="flex items-center gap-1 text-white/60 text-sm truncate">
+                  <MapPin className="w-3 h-3" />
+                  {event.location}
+                </p>
+              </div>
+              <div className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(event.status)} text-white`}>
+                {event.status.toUpperCase()}
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-4 text-white/70 text-sm">
+                <div className="flex items-center gap-1.5">
+                  <Clock className="w-4 h-4" />
+                  <span>{event.time}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Users className="w-4 h-4" />
+                  <span>{event.currentParticipants}/{event.maxParticipants}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <DollarSign className="w-4 h-4" />
+                  <span className={event.joiningFee === 0 ? 'text-[#96A78D] font-medium' : 'text-white'}>
+                    {event.joiningFee === 0 ? 'Free' : `$${event.joiningFee}`}
+                  </span>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-white/40 group-hover:text-white/60 transition-colors group-hover:translate-x-1" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-white shadow-lg hover:shadow-xl border border-gray-100 rounded-xl overflow-hidden transition-shadow duration-300">
-      {/* Event Image */}
-      <div className="relative bg-gradient-to-r from-blue-500 to-purple-600 h-48">
+    <div className="group bg-gradient-to-br from-white/5 hover:from-white/10 to-white/10 hover:to-white/15 hover:shadow-white/5 hover:shadow-xl backdrop-blur-sm border border-white/20 rounded-2xl overflow-hidden hover:scale-[1.02] transition-all duration-300">
+      {/* Header with image and status */}
+      <div className="relative h-48 overflow-hidden">
         {event.image ? (
-          <img
-            src={event.image}
-            alt={event.title}
-            className="w-full h-full object-cover"
-          />
+          <div className="relative w-full h-full">
+            <img
+              src={event.image}
+              alt={event.title}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+          </div>
         ) : (
-          <div className="flex justify-center items-center w-full h-full">
-            <div className="text-4xl">
+          <div className={`flex justify-center items-center w-full h-full ${getCategoryColor(event.category)}`}>
+            <div className="text-white/90 text-4xl">
               {event.eventType === 'concert' && '🎵'}
               {event.eventType === 'hiking' && '🥾'}
               {event.eventType === 'sports' && '⚽'}
@@ -67,118 +125,144 @@ export default function EventCard({ event, showHost = true }: EventCardProps) {
           </div>
         )}
         
-        {/* Status Badge */}
-        <div className="top-4 right-4 absolute">
-          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(event.status)}`}>
-            {event.status.toUpperCase()}
-          </span>
-        </div>
-
-        {/* Category Badge */}
-        <div className="top-4 left-4 absolute">
-          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getCategoryColor(event.category)}`}>
-            {event.category}
-          </span>
-        </div>
-
-        {/* Participants Count */}
-        <div className="right-4 bottom-4 absolute bg-black/70 px-3 py-1 rounded-full text-white text-sm">
-          <Users className="inline mr-1 w-4 h-4" />
-          {event.currentParticipants}/{event.maxParticipants}
+        {/* Top overlay */}
+        <div className="top-0 right-0 left-0 absolute flex justify-between items-start p-4">
+          <div className="flex flex-col gap-2">
+            <div className={`${getCategoryColor(event.category)} text-white px-3 py-1.5 rounded-full text-xs font-semibold inline-block w-fit shadow-lg`}>
+              {event.category}
+            </div>
+            <div className={`${getStatusColor(event.status)} px-3 py-1.5 rounded-full text-xs font-semibold text-white inline-block w-fit`}>
+              {event.status.toUpperCase()}
+            </div>
+          </div>
+          
+          <div className="bg-black/40 shadow-lg backdrop-blur-sm p-3 rounded-xl text-center">
+            <div className="font-bold text-white text-xl">{formatDate(event.date).split(',')[1]?.trim().split(' ')[1] || ''}</div>
+            <div className="text-white/70 text-xs uppercase tracking-wider">{formatDate(event.date).split(',')[1]?.trim().split(' ')[0] || ''}</div>
+            <div className="mt-1 text-white/60 text-xs">{formatDate(event.date).split(',')[0]}</div>
+          </div>
         </div>
       </div>
 
-      {/* Event Details */}
-      <div className="p-6">
-        {/* Event Title and Host */}
+      {/* Content */}
+      <div className="p-5">
+        {/* Event title and host */}
         <div className="mb-4">
           <Link href={`/events/${event._id}`}>
-            <h3 className="mb-2 font-bold text-gray-900 hover:text-blue-600 text-xl transition">
+            <h3 className="mb-2 font-bold text-white hover:text-[#D2C1B6] text-xl line-clamp-1 transition-colors">
               {event.title}
             </h3>
           </Link>
           
+          <p className="mb-4 text-white/70 text-sm line-clamp-2">
+            {event.description}
+          </p>
+
           {showHost && event.host && (
-            <div className="flex items-center mt-2">
-              <div className="flex justify-center items-center bg-blue-100 mr-2 rounded-full w-8 h-8">
-                {event.host.avatar ? (
-                  <img
-                    src={event.host.avatar}
-                    alt={event.host.name}
-                    className="rounded-full w-8 h-8"
-                  />
-                ) : (
-                  <span className="font-semibold text-blue-600">
-                    {event.host.name.charAt(0)}
-                  </span>
-                )}
+            <div className="flex items-center gap-3 bg-white/5 p-3 rounded-lg">
+              <div className="relative">
+                <div className="bg-gradient-to-r from-[#234C6A] to-[#96A78D] p-0.5 rounded-full w-9 h-9">
+                  {event.host.avatar ? (
+                    <img
+                      src={event.host.avatar}
+                      alt={event.host.name}
+                      className="rounded-full w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex justify-center items-center bg-white/10 rounded-full w-full h-full">
+                      <User className="w-4 h-4 text-white/80" />
+                    </div>
+                  )}
+                </div>
               </div>
-              <div>
-                <p className="font-medium text-gray-700 text-sm">{event.host.name}</p>
+              <div className="flex-1">
+                <p className="font-medium text-white/80 text-sm">Hosted by {event.host.name}</p>
                 {event.host.rating && (
-                  <p className="text-yellow-600 text-xs">⭐ {event.host.rating}</p>
+                  <p className="flex items-center gap-1.5 text-white/60 text-xs">
+                    <Star className="fill-[#D2C1B6] w-3 h-3 text-[#D2C1B6]" />
+                    {event.host.rating.toFixed(1)}
+                    <span className="text-white/40">•</span>
+                    <span className="text-white/60">{event.host.totalEvents || 0} events</span>
+                  </p>
                 )}
               </div>
             </div>
           )}
         </div>
 
-        {/* Event Info */}
-        <div className="space-y-3 mb-4">
-          <div className="flex items-center text-gray-600">
-            <Calendar className="mr-2 w-4 h-4 text-blue-500" />
-            <span className="text-sm">{formatDate(event.date)}</span>
-            <Clock className="mr-2 ml-3 w-4 h-4 text-blue-500" />
-            <span className="text-sm">{event.time}</span>
+        {/* Event details grid */}
+        <div className="gap-3 grid grid-cols-2 mb-4">
+          <div className="flex items-center gap-3 bg-white/5 p-3 rounded-lg">
+            <div className="flex justify-center items-center bg-white/10 backdrop-blur-sm rounded-lg w-9 h-9">
+              <Clock className="w-4 h-4 text-white/80" />
+            </div>
+            <div>
+              <p className="text-white/60 text-xs">Time</p>
+              <p className="font-medium text-white text-sm">{event.time}</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3 bg-white/5 p-3 rounded-lg">
+            <div className="flex justify-center items-center bg-white/10 backdrop-blur-sm rounded-lg w-9 h-9">
+              <MapPin className="w-4 h-4 text-white/80" />
+            </div>
+            <div>
+              <p className="text-white/60 text-xs">Location</p>
+              <p className="font-medium text-white text-sm truncate">{event.location}</p>
+            </div>
           </div>
 
-          <div className="flex items-center text-gray-600">
-            <MapPin className="mr-2 w-4 h-4 text-red-500" />
-            <span className="text-sm">{event.location}</span>
+          <div className="flex items-center gap-3 bg-white/5 p-3 rounded-lg">
+            <div className="flex justify-center items-center bg-white/10 backdrop-blur-sm rounded-lg w-9 h-9">
+              <DollarSign className="w-4 h-4 text-white/80" />
+            </div>
+            <div>
+              <p className="text-white/60 text-xs">Fee</p>
+              <p className={`font-semibold text-sm ${event.joiningFee === 0 ? 'text-[#96A78D]' : 'text-white'}`}>
+                {event.joiningFee === 0 ? 'FREE' : `$${event.joiningFee.toFixed(2)}`}
+              </p>
+            </div>
           </div>
-
-          <div className="flex items-center text-gray-600">
-            <DollarSign className="mr-2 w-4 h-4 text-green-500" />
-            <span className={`text-sm font-semibold ${event.joiningFee === 0 ? 'text-green-600' : 'text-gray-800'}`}>
-              {event.joiningFee === 0 ? 'FREE' : `$${event.joiningFee.toFixed(2)}`}
-            </span>
+          
+          <div className="flex items-center gap-3 bg-white/5 p-3 rounded-lg">
+            <div className="flex justify-center items-center bg-white/10 backdrop-blur-sm rounded-lg w-9 h-9">
+              <Users className="w-4 h-4 text-white/80" />
+            </div>
+            <div>
+              <p className="text-white/60 text-xs">Participants</p>
+              <p className="font-medium text-white text-sm">
+                {event.currentParticipants}/{event.maxParticipants}
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Description Excerpt */}
-        <p className="mb-6 text-gray-600 text-sm line-clamp-2">
-          {event.description}
-        </p>
-
         {/* Tags */}
-        <div className="flex flex-wrap gap-2 mb-6">
+        <div className="flex flex-wrap gap-2 mb-5">
           {event.tags.slice(0, 3).map((tag, index) => (
             <span
               key={index}
-              className="bg-gray-100 px-2 py-1 rounded-full text-gray-600 text-xs"
+              className="bg-white/10 hover:bg-white/20 px-3 py-1 rounded-full text-white/80 text-xs transition-colors"
             >
               #{tag}
             </span>
           ))}
           {event.tags.length > 3 && (
-            <span className="bg-gray-100 px-2 py-1 rounded-full text-gray-600 text-xs">
-              +{event.tags.length - 3} more
+            <span className="bg-white/10 px-3 py-1 rounded-full text-white/60 text-xs">
+              +{event.tags.length - 3}
             </span>
           )}
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex justify-between items-center">
+        {/* Action button */}
+        <div className="pt-4 border-white/10 border-t">
           <Link
             href={`/events/${event._id}`}
-            className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium text-white text-sm transition"
+            className="group/btn flex justify-center items-center gap-2 bg-gradient-to-r from-[#234C6A]/40 hover:from-[#234C6A]/60 to-[#96A78D]/40 hover:to-[#96A78D]/60 hover:shadow-[#96A78D]/10 hover:shadow-lg px-6 py-3 border border-white/20 hover:border-white/30 rounded-xl w-full font-semibold text-white text-sm transition-all duration-300"
           >
-            View Details
+            View Event Details
+            <ChevronRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
           </Link>
-          
-          <div className="text-gray-500 text-sm">
-            {event.joiningFee > 0 ? 'Paid Event' : 'Free Entry'}
-          </div>
         </div>
       </div>
     </div>

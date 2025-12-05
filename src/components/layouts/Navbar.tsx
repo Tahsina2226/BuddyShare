@@ -158,7 +158,7 @@ export default function Navbar() {
     }
   };
 
-  // Menu items based on user role
+  
   const getMenuItems = () => {
     const commonItems = [
       {

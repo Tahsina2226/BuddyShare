@@ -3,41 +3,30 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { EventDetails } from "@/types/eventDetails";
-import {
-  Calendar,
-  Clock,
-  MapPin,
-  Users,
-  DollarSign,
-  Tag,
-  Share2,
-  Heart,
-  AlertCircle,
-  CheckCircle,
-  XCircle,
-  MessageSquare,
-  ArrowLeft,
-  Sparkles,
-  Star,
-  TrendingUp,
-  Users as UsersIcon,
-  Map,
-  CalendarDays,
-  Compass,
-  Grid,
-  Bell,
-  Edit2,
-  ExternalLink,
-  ChevronRight,
-  Award,
-  Shield,
-  ThumbsUp,
-  Zap,
-} from "lucide-react";
-import { Loader2 } from "lucide-react";
+import { EventDetails, Review } from "@/types/eventDetails";
+import { Heart, Share2, Bell, Loader2, AlertCircle, ArrowLeft, XCircle } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import toast, { Toaster } from "react-hot-toast";
+import { EventDetailsHeader } from "@/components/EventDetailsHeader";
+import { EventContent } from "@/components/EventContent";
+import { EventSidebar } from "@/components/EventSidebar";
+import { ParticipantsSection } from "@/components/ParticipantsSection";
+import { ReviewsSection } from "@/components/ReviewsSection";
+
+const toastStyle = {
+  style: {
+    background: "linear-gradient(135deg, #234C6A 0%, #1a3d57 100%)",
+    border: "2px solid rgba(255, 255, 255, 0.2)",
+    backdropFilter: "blur(10px)",
+    color: "#fff",
+    borderRadius: "16px",
+    padding: "16px 20px",
+    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.3)",
+  },
+  duration: 4000,
+  position: "top-right" as const,
+};
 
 export default function EventDetailsPage() {
   const { id } = useParams();
@@ -49,143 +38,425 @@ export default function EventDetailsPage() {
   const [error, setError] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
   const [leaving, setLeaving] = useState(false);
-  const [showParticipants, setShowParticipants] = useState(false);
   const [canJoinInfo, setCanJoinInfo] = useState<{
     canJoin: boolean;
     reasons: string[];
   } | null>(null);
+  
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [showAllReviews, setShowAllReviews] = useState(false);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [userReview, setUserReview] = useState<{
+    rating: number;
+    comment: string;
+    _id?: string;
+  }>({ rating: 0, comment: "" });
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [userHasReview, setUserHasReview] = useState(false);
 
   useEffect(() => {
     fetchEventDetails();
     if (user) {
       checkCanJoin();
+      fetchReviews();
+      checkUserReview();
     }
   }, [id, user]);
 
   const fetchEventDetails = async () => {
     try {
-      setLoading(true);
       const response = await fetch(`http://localhost:5000/api/events/${id}`);
-
-      if (!response.ok) {
-        throw new Error("Event not found");
-      }
-
+      if (!response.ok) throw new Error("Event not found");
       const data = await response.json();
-      if (data.success) {
-        setEvent(data.data.event);
-      }
+      if (data.success) setEvent({ ...data.data.event });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load event");
+      const errorMessage = err instanceof Error ? err.message : "Failed to load event";
+      setError(errorMessage);
+      toast.error(errorMessage, { ...toastStyle, icon: "❌" });
     } finally {
       setLoading(false);
     }
   };
 
-  const checkCanJoin = async () => {
+  const fetchReviews = async () => {
     try {
-      const response = await fetch(
-        `http://localhost:5000/api/events/${id}/can-join`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
-      );
-
+      setLoadingReviews(true);
+      const response = await fetch(`http://localhost:5000/api/events/${id}/reviews`);
       if (response.ok) {
         const data = await response.json();
-        setCanJoinInfo(data.data);
+        if (data.success) setReviews(data.data.reviews || []);
       }
     } catch (err) {
+      console.error("Error fetching reviews:", err);
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
+
+  const checkUserReview = async () => {
+    if (!user) return;
+    try {
+      const response = await fetch(`http://localhost:5000/api/events/${id}/reviews/check`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data.review) {
+          setUserReview({
+            rating: data.data.review.rating,
+            comment: data.data.review.comment,
+            _id: data.data.review._id,
+          });
+          setUserHasReview(true);
+        } else setUserHasReview(false);
+      }
+    } catch (err) {
+      console.error("Error checking user review:", err);
+    }
+  };
+
+  const checkCanJoin = async () => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/events/${id}/can-join`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setCanJoinInfo({ ...data.data });
+      } else setCanJoinInfo(null);
+    } catch (err) {
       console.error("Error checking join status:", err);
+      setCanJoinInfo(null);
     }
   };
 
   const handleJoinEvent = async () => {
     if (!user) {
-      router.push("/login");
+      toast.custom((t) => (
+        <motion.div
+          initial={{ opacity: 0, x: 50 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: 50 }}
+          className="bg-gradient-to-r from-[#234C6A] to-[#1a3d57] shadow-2xl backdrop-blur-xl p-4 border-2 border-white/20 rounded-xl"
+        >
+          <div className="flex items-center gap-3">
+            <div className="bg-gradient-to-br from-[#96A78D] to-[#889c7e] p-2 rounded-lg">
+              <AlertCircle className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="font-bold text-white">Login Required</p>
+              <p className="text-white/70 text-sm">Please login to join events</p>
+            </div>
+            <button
+              onClick={() => {
+                router.push("/login");
+                toast.dismiss(t.id);
+              }}
+              className="bg-gradient-to-r from-[#96A78D] hover:from-[#889c7e] to-[#889c7e] hover:to-[#96A78D] ml-4 px-4 py-2 rounded-lg font-bold text-white text-sm transition-all"
+            >
+              Login
+            </button>
+          </div>
+        </motion.div>
+      ));
       return;
     }
 
     try {
       setJoining(true);
-
-      if (event?.joiningFee === 0) {
-        const response = await fetch(
-          `http://localhost:5000/api/payments/free-join`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
+      const response = await fetch(`http://localhost:5000/api/events/${id}/join`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+      const data = await response.json();
+      if (data.success) {
+        if (event) {
+          const updatedParticipants = [
+            ...event.participants,
+            {
+              _id: user.id,
+              name: user.name || "User",
+              avatar: user.avatar,
+              location: user.location || "Unknown",
             },
-            body: JSON.stringify({ eventId: id }),
-          }
-        );
-
-        const data = await response.json();
-
-        if (data.success) {
-          alert("Successfully joined the event!");
-          fetchEventDetails();
-          checkCanJoin();
-        } else {
-          alert(data.message || "Failed to join event");
+          ];
+          setEvent({
+            ...event,
+            currentParticipants: updatedParticipants.length,
+            participants: updatedParticipants,
+          });
         }
-      } else {
-        router.push(`/payment/${id}`);
-      }
+        await fetchEventDetails();
+        await checkCanJoin();
+        toast.success("Successfully joined the event!", { ...toastStyle, icon: "🎉" });
+      } else throw new Error(data.message || "Failed to join event");
     } catch (err) {
       console.error("Error joining event:", err);
-      alert("Failed to join event");
+      toast.error(err instanceof Error ? err.message : "Failed to join event", { ...toastStyle, icon: "❌" });
     } finally {
       setJoining(false);
     }
   };
 
   const handleLeaveEvent = async () => {
-    if (!user || !confirm("Are you sure you want to leave this event?")) {
-      return;
-    }
+    if (!user) return;
+    toast.custom((t) => (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        className="bg-gradient-to-r from-[#234C6A] to-[#1a3d57] shadow-2xl backdrop-blur-xl p-6 border-2 border-white/20 rounded-xl max-w-sm"
+      >
+        <div className="flex items-start gap-3 mb-4">
+          <div className="bg-gradient-to-br from-[#D2C1B6] to-[#c4b1a6] p-2 rounded-lg">
+            <AlertCircle className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <p className="font-bold text-white text-lg">Leave Event?</p>
+            <p className="mt-1 text-white/70">Are you sure you want to leave "{event?.title}"?</p>
+          </div>
+        </div>
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="bg-white/10 hover:bg-white/20 backdrop-blur-sm px-4 py-2 border border-white/20 rounded-lg font-medium text-white transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={async () => {
+              toast.dismiss(t.id);
+              await performLeaveEvent();
+            }}
+            className="bg-gradient-to-r from-[#D2C1B6] hover:from-[#c4b1a6] to-[#c4b1a6] hover:to-[#D2C1B6] px-4 py-2 rounded-lg font-bold text-white transition-all"
+          >
+            Yes, Leave
+          </button>
+        </div>
+      </motion.div>
+    ));
+  };
 
+  const performLeaveEvent = async () => {
     try {
       setLeaving(true);
-      const response = await fetch(
-        `http://localhost:5000/api/events/${id}/leave`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
-      );
-
+      const response = await fetch(`http://localhost:5000/api/events/${id}/leave`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
       const data = await response.json();
-
       if (data.success) {
-        alert("Successfully left the event");
-        fetchEventDetails();
-        checkCanJoin();
-      } else {
-        alert(data.message || "Failed to leave event");
-      }
+        if (event && user) {
+          const updatedParticipants = event.participants.filter((p) => p._id !== user.id);
+          setEvent({
+            ...event,
+            currentParticipants: updatedParticipants.length,
+            participants: updatedParticipants,
+          });
+        }
+        await fetchEventDetails();
+        await checkCanJoin();
+        toast.success("Successfully left the event!", { ...toastStyle, icon: "👋" });
+      } else throw new Error(data.message || "Failed to leave event");
     } catch (err) {
       console.error("Error leaving event:", err);
-      alert("Failed to leave event");
+      toast.error(err instanceof Error ? err.message : "Failed to leave event", { ...toastStyle, icon: "❌" });
     } finally {
       setLeaving(false);
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+  const handleSubmitReview = async () => {
+    if (!user) {
+      toast.error("Please login to submit a review", { ...toastStyle, icon: "🔒" });
+      return;
+    }
+    if (!userReview.rating) {
+      toast.error("Please provide a rating", { ...toastStyle, icon: "⭐" });
+      return;
+    }
+    try {
+      setSubmittingReview(true);
+      const endpoint = userHasReview
+        ? `http://localhost:5000/api/events/${id}/reviews/${userReview._id}`
+        : `http://localhost:5000/api/events/${id}/reviews`;
+      const method = userHasReview ? "PUT" : "POST";
+      const response = await fetch(endpoint, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({
+          rating: userReview.rating,
+          comment: userReview.comment,
+          hostId: event?.host._id,
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast.success(userHasReview ? "Review updated successfully!" : "Review submitted successfully!", { ...toastStyle, icon: "🎉" });
+        await fetchReviews();
+        await fetchEventDetails();
+        await checkUserReview();
+        setShowReviewForm(false);
+      } else throw new Error(data.message || "Failed to submit review");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to submit review", { ...toastStyle, icon: "❌" });
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const handleDeleteReview = async () => {
+    if (!userReview._id) return;
+    toast.custom((t) => (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        className="bg-gradient-to-r from-[#234C6A] to-[#1a3d57] shadow-2xl backdrop-blur-xl p-6 border-2 border-white/20 rounded-xl max-w-sm"
+      >
+        <div className="flex items-start gap-3 mb-4">
+          <div className="bg-gradient-to-br from-[#D2C1B6] to-[#c4b1a6] p-2 rounded-lg">
+            <AlertCircle className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <p className="font-bold text-white text-lg">Delete Review?</p>
+            <p className="mt-1 text-white/70">Are you sure you want to delete your review? This action cannot be undone.</p>
+          </div>
+        </div>
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="bg-white/10 hover:bg-white/20 backdrop-blur-sm px-4 py-2 border border-white/20 rounded-lg font-medium text-white transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={async () => {
+              toast.dismiss(t.id);
+              await performDeleteReview();
+            }}
+            className="bg-gradient-to-r from-[#D2C1B6] hover:from-[#c4b1a6] to-[#c4b1a6] hover:to-[#D2C1B6] px-4 py-2 rounded-lg font-bold text-white transition-all"
+          >
+            Yes, Delete
+          </button>
+        </div>
+      </motion.div>
+    ));
+  };
+
+  const performDeleteReview = async () => {
+    if (!userReview._id) return;
+    try {
+      const response = await fetch(`http://localhost:5000/api/events/${id}/reviews/${userReview._id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast.success("Review deleted successfully!", { ...toastStyle, icon: "🗑️" });
+        await fetchReviews();
+        await fetchEventDetails();
+        await checkUserReview();
+        setUserReview({ rating: 0, comment: "" });
+        setShowReviewForm(false);
+      }
+    } catch (err) {
+      toast.error("Failed to delete review", { ...toastStyle, icon: "❌" });
+    }
+  };
+
+  const handleLikeEvent = () => {
+    toast(
+      (t) => (
+        <div className="flex items-center gap-3">
+          <div className="bg-gradient-to-br from-[#D2C1B6] to-[#c4b1a6] p-2 rounded-lg">
+            <Heart className="w-5 h-5 text-white" />
+          </div>
+          <span className="font-bold text-white">Event added to favorites!</span>
+        </div>
+      ),
+      toastStyle
+    );
+  };
+
+  const handleShareEvent = () => {
+    toast.custom((t) => (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 20 }}
+        className="bg-gradient-to-r from-[#234C6A] to-[#1a3d57] shadow-2xl backdrop-blur-xl p-6 border-2 border-white/20 rounded-xl"
+      >
+        <div className="flex items-center gap-3 mb-4">
+          <div className="bg-gradient-to-br from-[#96A78D] to-[#889c7e] p-2 rounded-lg">
+            <Share2 className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <p className="font-bold text-white text-lg">Share Event</p>
+            <p className="text-white/70 text-sm">Copy link to share</p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            readOnly
+            value={`${window.location.origin}/events/${id}`}
+            className="flex-1 bg-white/10 backdrop-blur-sm px-4 py-2 border border-white/20 rounded-lg text-white text-sm"
+          />
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(`${window.location.origin}/events/${id}`);
+              toast.success("Link copied to clipboard!", { ...toastStyle, icon: "📋" });
+              toast.dismiss(t.id);
+            }}
+            className="bg-gradient-to-r from-[#96A78D] hover:from-[#889c7e] to-[#889c7e] hover:to-[#96A78D] px-4 py-2 rounded-lg font-bold text-white text-sm transition-all"
+          >
+            Copy
+          </button>
+        </div>
+      </motion.div>
+    ));
+  };
+
+  const handleRemindMe = () => {
+    toast.promise(
+      new Promise((resolve) => setTimeout(resolve, 1000)),
+      {
+        loading: (
+          <div className="flex items-center gap-3">
+            <Loader2 className="w-5 h-5 text-[#96A78D] animate-spin" />
+            <span className="font-bold text-white">Setting reminder...</span>
+          </div>
+        ),
+        success: (
+          <div className="flex items-center gap-3">
+            <div className="bg-gradient-to-br from-[#96A78D] to-[#889c7e] p-2 rounded-lg">
+              <Bell className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="font-bold text-white">Reminder set!</p>
+              <p className="text-white/70 text-sm">You'll be notified 1 hour before</p>
+            </div>
+          </div>
+        ),
+        error: (
+          <div className="flex items-center gap-3">
+            <div className="bg-gradient-to-br from-[#D2C1B6] to-[#c4b1a6] p-2 rounded-lg">
+              <XCircle className="w-5 h-5 text-white" />
+            </div>
+            <span className="font-bold text-white">Failed to set reminder</span>
+          </div>
+        ),
+      },
+      toastStyle
+    );
   };
 
   const isUserParticipant = () => {
@@ -198,47 +469,6 @@ export default function EventDetailsPage() {
     return event.host._id === user.id;
   };
 
-  const getStatusBadge = () => {
-    if (!event) return null;
-
-    const statusConfig: Record<
-      string,
-      { bg: string; text: string; icon: React.ReactNode }
-    > = {
-      open: {
-        bg: "bg-gradient-to-r from-[#96A78D] to-[#889c7e]",
-        text: "text-white",
-        icon: <CheckCircle className="w-4 h-4" />,
-      },
-      full: {
-        bg: "bg-gradient-to-r from-[#D2C1B6] to-[#c4b1a6]",
-        text: "text-white",
-        icon: <XCircle className="w-4 h-4" />,
-      },
-      cancelled: {
-        bg: "bg-gradient-to-r from-white/20 to-white/10",
-        text: "text-white/80",
-        icon: <XCircle className="w-4 h-4" />,
-      },
-      completed: {
-        bg: "bg-gradient-to-r from-[#234C6A] to-[#1a3d57]",
-        text: "text-white",
-        icon: <CheckCircle className="w-4 h-4" />,
-      },
-    };
-
-    const config = statusConfig[event.status] || statusConfig.open;
-
-    return (
-      <span
-        className={`inline-flex items-center gap-2 shadow-lg backdrop-blur-sm px-4 py-2 border-2 border-white/30 rounded-full font-bold text-sm ${config.bg} ${config.text}`}
-      >
-        {config.icon}
-        {event.status.toUpperCase()}
-      </span>
-    );
-  };
-
   if (loading) {
     return (
       <div className="bg-gradient-to-b from-[#234C6A] via-[#1a3d57] to-[#152a3d] min-h-screen">
@@ -247,12 +477,8 @@ export default function EventDetailsPage() {
             <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-white/5 blur-xl rounded-full"></div>
             <Loader2 className="relative w-16 h-16 text-white animate-spin" />
           </div>
-          <p className="mb-2 font-bold text-white text-2xl">
-            Loading Event Details
-          </p>
-          <p className="text-white/60">
-            We're preparing the perfect experience for you
-          </p>
+          <p className="mb-2 font-bold text-white text-2xl">Loading Event Details</p>
+          <p className="text-white/60">We're preparing the perfect experience for you</p>
         </div>
       </div>
     );
@@ -295,566 +521,78 @@ export default function EventDetailsPage() {
   }
 
   return (
-    <div className="bg-gradient-to-b from-[#234C6A] via-[#1a3d57] to-[#152a3d] min-h-screen">
-      <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8 max-w-7xl">
-        <div className="mb-8">
-          <Link
-            href="/events"
-            className="group inline-flex items-center gap-2 mb-6 text-white/70 hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-            <span className="font-medium">Back to Events</span>
-          </Link>
+    <>
+      <Toaster
+        toastOptions={{
+          style: toastStyle.style,
+          duration: toastStyle.duration,
+          position: toastStyle.position,
+        }}
+        containerStyle={{
+          top: 20,
+          right: 20,
+        }}
+      />
 
-          <div className="flex lg:flex-row flex-col justify-between items-start lg:items-center gap-6 mb-8">
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                {getStatusBadge()}
-                <span className="bg-gradient-to-r from-[#D2C1B6] to-[#c4b1a6] shadow-lg backdrop-blur-sm px-4 py-2 border-2 border-white/30 rounded-full font-bold text-white text-sm">
-                  {event.category}
-                </span>
-              </div>
-              <h1 className="mb-2 font-bold text-white text-4xl lg:text-5xl tracking-tight">
-                {event.title}
-              </h1>
-              <div className="flex items-center gap-4 text-white/60">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
-                  <span>{formatDate(event.date)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4" />
-                  <span>{event.location}</span>
-                </div>
-              </div>
+      <div className="bg-gradient-to-b from-[#234C6A] via-[#1a3d57] to-[#152a3d] min-h-screen">
+        <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8 max-w-7xl">
+          <EventDetailsHeader
+            event={event}
+            onLike={handleLikeEvent}
+            onShare={handleShareEvent}
+            onRemindMe={handleRemindMe}
+          />
+
+          <div className="gap-8 grid grid-cols-1 lg:grid-cols-3">
+            <EventContent event={event} />
+            
+            <div className="space-y-6">
+              <EventSidebar
+                event={event}
+                user={user}
+                canJoinInfo={canJoinInfo}
+                isUserHost={isUserHost()}
+                isUserParticipant={isUserParticipant()}
+                onJoinEvent={handleJoinEvent}
+                onLeaveEvent={handleLeaveEvent}
+                joining={joining}
+                leaving={leaving}
+                showReviewForm={showReviewForm}
+                setShowReviewForm={setShowReviewForm}
+                userReview={userReview}
+                setUserReview={setUserReview}
+                userHasReview={userHasReview}
+                submittingReview={submittingReview}
+                onSubmitReview={handleSubmitReview}
+                onDeleteReview={handleDeleteReview}
+              />
+
+              <ParticipantsSection
+                participants={event.participants}
+                currentParticipants={event.currentParticipants}
+              />
+
+              <ReviewsSection
+                reviews={reviews}
+                loadingReviews={loadingReviews}
+                showAllReviews={showAllReviews}
+                setShowAllReviews={setShowAllReviews}
+                hostAverageRating={event.host.averageRating}
+                totalReviews={reviews.length}
+                user={user}
+                onEditReview={(review) => {
+                  setUserReview({
+                    rating: review.rating,
+                    comment: review.comment,
+                    _id: review._id,
+                  });
+                  setShowReviewForm(true);
+                }}
+              />
             </div>
-
-            <div className="flex items-center gap-3">
-              <button className="bg-white/10 hover:bg-white/20 shadow-lg backdrop-blur-sm p-3 border-2 border-white/20 rounded-xl transition-all">
-                <Heart className="w-5 h-5 text-white" />
-              </button>
-              <button className="bg-white/10 hover:bg-white/20 shadow-lg backdrop-blur-sm p-3 border-2 border-white/20 rounded-xl transition-all">
-                <Share2 className="w-5 h-5 text-white" />
-              </button>
-              <button className="bg-white/10 hover:bg-white/20 shadow-lg backdrop-blur-sm p-3 border-2 border-white/20 rounded-xl transition-all">
-                <Bell className="w-5 h-5 text-white" />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="gap-8 grid grid-cols-1 lg:grid-cols-3">
-          <div className="space-y-8 lg:col-span-2">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="relative bg-gradient-to-br from-[#234C6A] via-[#D2C1B6] to-[#96A78D] shadow-2xl backdrop-blur-xl border-2 border-white/20 rounded-2xl h-64 md:h-96 overflow-hidden"
-            >
-              {event.image ? (
-                <img
-                  src={event.image}
-                  alt={event.title}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="flex justify-center items-center w-full h-full">
-                  <div className="opacity-50 text-9xl">
-                    {event.eventType === "concert" && "🎵"}
-                    {event.eventType === "hiking" && "🥾"}
-                    {event.eventType === "sports" && "⚽"}
-                    {event.eventType === "games" && "🎮"}
-                    {event.eventType === "tech" && "💻"}
-                    {event.eventType === "art" && "🎨"}
-                    {![
-                      "concert",
-                      "hiking",
-                      "sports",
-                      "games",
-                      "tech",
-                      "art",
-                    ].includes(event.eventType) && "🎪"}
-                  </div>
-                </div>
-              )}
-            </motion.div>
-
-            <div className="gap-6 grid grid-cols-1 md:grid-cols-2">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="bg-white/5 shadow-2xl backdrop-blur-xl p-6 border-2 border-white/20 rounded-2xl"
-              >
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="bg-gradient-to-br from-[#234C6A] to-[#1a3d57] shadow-lg p-3 rounded-xl">
-                    <Calendar className="w-6 h-6 text-white" />
-                  </div>
-                  <h3 className="font-bold text-white text-xl">
-                    Event Schedule
-                  </h3>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center bg-white/5 p-4 border border-white/10 rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <Calendar className="w-5 h-5 text-white/60" />
-                      <div>
-                        <p className="text-white/60 text-sm">Date</p>
-                        <p className="font-bold text-white">
-                          {formatDate(event.date)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between items-center bg-white/5 p-4 border border-white/10 rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <Clock className="w-5 h-5 text-white/60" />
-                      <div>
-                        <p className="text-white/60 text-sm">Time</p>
-                        <p className="font-bold text-white">{event.time}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between items-center bg-white/5 p-4 border border-white/10 rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <Clock className="w-5 h-5 text-white/60" />
-                      <div>
-                        <p className="text-white/60 text-sm">Duration</p>
-                        <p className="font-bold text-white">
-                          {event.duration || "3 hours"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="bg-white/5 shadow-2xl backdrop-blur-xl p-6 border-2 border-white/20 rounded-2xl"
-              >
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="bg-gradient-to-br from-[#D2C1B6] to-[#c4b1a6] shadow-lg p-3 rounded-xl">
-                    <MapPin className="w-6 h-6 text-white" />
-                  </div>
-                  <h3 className="font-bold text-white text-xl">
-                    Location Details
-                  </h3>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="bg-white/5 p-4 border border-white/10 rounded-xl">
-                    <p className="mb-1 font-bold text-white text-lg">
-                      {event.location}
-                    </p>
-                    <p className="text-white/60">{event.address}</p>
-                  </div>
-
-                  <div className="flex justify-between items-center bg-white/5 p-4 border border-white/10 rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <Map className="w-5 h-5 text-white/60" />
-                      <div>
-                        <p className="text-white/60 text-sm">Venue Type</p>
-                        <p className="font-bold text-white">Outdoor Event</p>
-                      </div>
-                    </div>
-                    <button className="text-[#96A78D] hover:text-[#889c7e] transition-colors">
-                      <ExternalLink className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="bg-white/5 shadow-2xl backdrop-blur-xl p-8 border-2 border-white/20 rounded-2xl"
-            >
-              <div className="flex items-center gap-3 mb-6">
-                <div className="bg-gradient-to-br from-[#96A78D] to-[#889c7e] shadow-lg p-3 rounded-xl">
-                  <MessageSquare className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="font-bold text-white text-2xl">
-                  About This Event
-                </h3>
-              </div>
-
-              <div className="bg-white/5 p-6 border border-white/10 rounded-xl">
-                <p className="text-white/80 leading-relaxed whitespace-pre-line">
-                  {event.description}
-                </p>
-              </div>
-
-              {event.tags.length > 0 && (
-                <div className="mt-8">
-                  <h4 className="mb-4 font-bold text-white text-lg">
-                    Event Tags
-                  </h4>
-                  <div className="flex flex-wrap gap-3">
-                    {event.tags.map((tag, index) => (
-                      <span
-                        key={index}
-                        className="inline-flex items-center gap-2 bg-gradient-to-r from-white/15 to-white/5 shadow-lg backdrop-blur-sm px-4 py-2 border-2 border-white/20 rounded-full font-medium text-white"
-                      >
-                        <Tag className="w-3 h-3" />
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          </div>
-
-          <div className="space-y-6">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="top-8 sticky bg-gradient-to-br from-[#234C6A]/50 via-[#1a3d57]/40 to-[#152a3d]/30 shadow-2xl backdrop-blur-xl p-8 border-2 border-white/25 rounded-2xl"
-            >
-              <div className="flex justify-between items-center mb-8">
-                <div className="flex items-center gap-3">
-                  <div className="bg-gradient-to-br from-[#96A78D] to-[#889c7e] shadow-lg p-2 rounded-lg">
-                    <DollarSign className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-white/60 text-sm">Joining Fee</p>
-                    <p
-                      className={`font-bold text-3xl ${
-                        event.joiningFee === 0 ? "text-[#96A78D]" : "text-white"
-                      }`}
-                    >
-                      {event.joiningFee === 0
-                        ? "FREE"
-                        : `$${event.joiningFee.toFixed(2)}`}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-white/60 text-sm">Spots Left</p>
-                  <p className="font-bold text-white text-3xl">
-                    {event.maxParticipants - event.currentParticipants}
-                  </p>
-                </div>
-              </div>
-
-              <div className="relative bg-white/10 mb-4 rounded-xl h-3">
-                <div
-                  className="top-0 left-0 absolute bg-gradient-to-r from-[#96A78D] to-[#889c7e] rounded-full h-full transition-all duration-300"
-                  style={{
-                    width: `${
-                      (event.currentParticipants / event.maxParticipants) * 100
-                    }%`,
-                  }}
-                />
-              </div>
-              <p className="mb-8 text-white/60 text-sm text-center">
-                {event.currentParticipants} of {event.maxParticipants} spots
-                filled •{" "}
-                {Math.round(
-                  (event.currentParticipants / event.maxParticipants) * 100
-                )}
-                % capacity
-              </p>
-
-              {canJoinInfo &&
-                !canJoinInfo.canJoin &&
-                canJoinInfo.reasons.length > 0 && (
-                  <div className="bg-gradient-to-r from-white/10 to-white/5 mb-6 p-4 border-2 border-white/20 rounded-xl">
-                    <div className="flex items-start">
-                      <AlertCircle className="flex-shrink-0 mt-0.5 mr-3 w-5 h-5 text-white/60" />
-                      <div className="text-sm">
-                        <p className="font-bold text-white">
-                          Cannot join because:
-                        </p>
-                        <ul className="mt-2 text-white/60 list-disc list-inside">
-                          {canJoinInfo.reasons.map((reason, index) => (
-                            <li key={index}>{reason}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-              <div className="space-y-4">
-                {isUserHost() ? (
-                  <div className="space-y-4">
-                    <div className="flex justify-center items-center gap-2 bg-gradient-to-r from-[#96A78D]/20 to-[#889c7e]/20 p-4 border-[#96A78D]/30 border-2 rounded-xl">
-                      <Shield className="w-5 h-5 text-[#96A78D]" />
-                      <span className="font-bold text-[#96A78D]">
-                        You are the host
-                      </span>
-                    </div>
-                    <Link
-                      href={`/events/edit/${event._id}`}
-                      className="flex justify-center items-center gap-3 bg-gradient-to-r from-[#234C6A] hover:from-[#1a3d57] to-[#1a3d57] hover:to-[#152a3d] shadow-lg backdrop-blur-sm px-6 py-4 border-2 border-white/20 rounded-xl w-full font-bold text-white hover:scale-[1.02] transition-all"
-                    >
-                      <Edit2 className="w-5 h-5" />
-                      Manage Event
-                    </Link>
-                  </div>
-                ) : isUserParticipant() ? (
-                  <>
-                    <div className="flex justify-center items-center gap-2 bg-gradient-to-r from-[#96A78D]/20 to-[#889c7e]/20 p-4 border-[#96A78D]/30 border-2 rounded-xl">
-                      <CheckCircle className="w-5 h-5 text-[#96A78D]" />
-                      <span className="font-bold text-[#96A78D]">
-                        You are attending
-                      </span>
-                    </div>
-                    <button
-                      onClick={handleLeaveEvent}
-                      disabled={leaving}
-                      className="bg-gradient-to-r from-white/10 hover:from-white/20 to-white/5 hover:to-white/10 disabled:opacity-50 shadow-lg backdrop-blur-sm px-6 py-4 border-2 border-white/20 rounded-xl w-full font-bold text-white transition-all disabled:cursor-not-allowed"
-                    >
-                      {leaving ? "Leaving..." : "Leave Event"}
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={handleJoinEvent}
-                    disabled={joining || (canJoinInfo && !canJoinInfo.canJoin)}
-                    className={`w-full px-6 py-4 rounded-xl shadow-lg backdrop-blur-sm border-2 border-white/20 font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] ${
-                      event.joiningFee === 0
-                        ? "bg-gradient-to-r from-[#96A78D] to-[#889c7e] hover:from-[#889c7e] hover:to-[#96A78D] text-white"
-                        : "bg-gradient-to-r from-[#234C6A] to-[#D2C1B6] hover:from-[#D2C1B6] hover:to-[#234C6A] text-white"
-                    }`}
-                  >
-                    {joining
-                      ? "Processing..."
-                      : event.joiningFee === 0
-                      ? "Join for Free"
-                      : "Join Event"}
-                  </button>
-                )}
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="bg-gradient-to-br from-[#234C6A]/50 via-[#1a3d57]/40 to-[#152a3d]/30 shadow-2xl backdrop-blur-xl p-8 border-2 border-white/25 rounded-2xl"
-            >
-              <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="bg-gradient-to-br from-[#D2C1B6] to-[#c4b1a6] shadow-lg p-2 rounded-lg">
-                    <Award className="w-5 h-5 text-white" />
-                  </div>
-                  <h3 className="font-bold text-white text-xl">Event Host</h3>
-                </div>
-                <span className="bg-white/10 backdrop-blur-sm px-3 py-1 rounded-full font-medium text-white/70 text-sm">
-                  Verified
-                </span>
-              </div>
-
-              <div className="flex items-center gap-4 mb-6">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-[#234C6A] to-[#D2C1B6] blur-md rounded-full"></div>
-                  <div className="relative flex justify-center items-center bg-gradient-to-br from-[#234C6A] to-[#D2C1B6] shadow-lg rounded-full w-16 h-16">
-                    {event.host.avatar ? (
-                      <img
-                        src={event.host.avatar}
-                        alt={event.host.name}
-                        className="rounded-full w-16 h-16"
-                      />
-                    ) : (
-                      <span className="font-bold text-white text-2xl">
-                        {event.host.name.charAt(0)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <h4 className="mb-1 font-bold text-white text-lg">
-                    {event.host.name}
-                  </h4>
-                  <p className="mb-3 text-white/60 text-sm">
-                    Professional Event Organizer
-                  </p>
-                  {event.host.rating && (
-                    <div className="flex items-center">
-                      <div className="flex">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`w-4 h-4 ${
-                              i < Math.floor(event.host.rating || 0)
-                                ? "text-yellow-400"
-                                : "text-white/30"
-                            }`}
-                          />
-                        ))}
-                      </div>
-                      <span className="ml-2 font-medium text-white">
-                        {event.host.rating}
-                      </span>
-                      <span className="ml-2 text-white/60 text-sm">
-                        ({event.host.eventsHosted || 24} events)
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="gap-4 grid grid-cols-2 mb-6">
-                <div className="bg-white/5 p-4 border border-white/10 rounded-xl">
-                  <p className="text-white/60 text-sm">Response Rate</p>
-                  <p className="font-bold text-white text-lg">98%</p>
-                </div>
-                <div className="bg-white/5 p-4 border border-white/10 rounded-xl">
-                  <p className="text-white/60 text-sm">Events Hosted</p>
-                  <p className="font-bold text-white text-lg">
-                    {event.host.eventsHosted || 24}
-                  </p>
-                </div>
-              </div>
-
-              <Link
-                href={`/profile/${event.host._id}`}
-                className="group flex justify-center items-center gap-3 bg-white/10 hover:bg-white/20 shadow-lg backdrop-blur-sm px-6 py-3 border-2 border-white/20 rounded-xl w-full font-bold text-white transition-all"
-              >
-                <span>View Host Profile</span>
-                <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-              </Link>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="bg-gradient-to-br from-[#234C6A]/50 via-[#1a3d57]/40 to-[#152a3d]/30 shadow-2xl backdrop-blur-xl p-8 border-2 border-white/25 rounded-2xl"
-            >
-              <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="bg-gradient-to-br from-[#96A78D] to-[#889c7e] shadow-lg p-2 rounded-lg">
-                    <Users className="w-5 h-5 text-white" />
-                  </div>
-                  <h3 className="font-bold text-white text-xl">Attendees</h3>
-                </div>
-                <span className="bg-white/10 backdrop-blur-sm px-3 py-1 rounded-full font-bold text-white text-sm">
-                  {event.currentParticipants} people
-                </span>
-              </div>
-
-              <div className="space-y-4">
-                {event.participants
-                  .slice(0, showParticipants ? undefined : 5)
-                  .map((participant) => (
-                    <div
-                      key={participant._id}
-                      className="flex justify-between items-center bg-white/5 p-3 border border-white/10 rounded-xl"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="relative">
-                          <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-white/5 blur-md rounded-full"></div>
-                          <div className="relative flex justify-center items-center bg-gradient-to-br from-white/10 to-white/5 shadow-lg rounded-full w-12 h-12">
-                            {participant.avatar ? (
-                              <img
-                                src={participant.avatar}
-                                alt={participant.name}
-                                className="rounded-full w-12 h-12"
-                              />
-                            ) : (
-                              <span className="font-bold text-white">
-                                {participant.name.charAt(0)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div>
-                          <p className="font-bold text-white">
-                            {participant.name}
-                          </p>
-                          <p className="text-white/60 text-sm">
-                            {participant.location}
-                          </p>
-                        </div>
-                      </div>
-                      <button className="text-white/60 hover:text-white transition-colors">
-                        <MessageSquare className="w-5 h-5" />
-                      </button>
-                    </div>
-                  ))}
-
-                {event.participants.length === 0 && (
-                  <div className="py-8 text-center">
-                    <div className="inline-flex justify-center items-center mb-4">
-                      <div className="bg-gradient-to-br from-white/10 to-white/5 p-4 rounded-xl">
-                        <Users className="w-8 h-8 text-white/40" />
-                      </div>
-                    </div>
-                    <p className="text-white/60">No participants yet</p>
-                    <p className="mt-1 text-white/40 text-sm">
-                      Be the first to join!
-                    </p>
-                  </div>
-                )}
-
-                {!showParticipants && event.participants.length > 5 && (
-                  <button
-                    onClick={() => setShowParticipants(true)}
-                    className="flex justify-center items-center gap-2 py-3 w-full text-white/70 hover:text-white transition-colors"
-                  >
-                    <span>
-                      Show {event.participants.length - 5} more attendees
-                    </span>
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="bg-gradient-to-br from-[#234C6A]/50 via-[#1a3d57]/40 to-[#152a3d]/30 shadow-2xl backdrop-blur-xl p-8 border-2 border-white/25 rounded-2xl"
-            >
-              <div className="flex items-center gap-3 mb-6">
-                <div className="bg-gradient-to-br from-[#234C6A] to-[#96A78D] shadow-lg p-2 rounded-lg">
-                  <Zap className="w-5 h-5 text-white" />
-                </div>
-                <h3 className="font-bold text-white text-xl">What to Expect</h3>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl">
-                  <div className="bg-[#96A78D]/20 p-2 rounded-lg">
-                    <CheckCircle className="w-4 h-4 text-[#96A78D]" />
-                  </div>
-                  <span className="text-white">Professional organization</span>
-                </div>
-                <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl">
-                  <div className="bg-[#96A78D]/20 p-2 rounded-lg">
-                    <CheckCircle className="w-4 h-4 text-[#96A78D]" />
-                  </div>
-                  <span className="text-white">All equipment provided</span>
-                </div>
-                <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl">
-                  <div className="bg-[#96A78D]/20 p-2 rounded-lg">
-                    <CheckCircle className="w-4 h-4 text-[#96A78D]" />
-                  </div>
-                  <span className="text-white">Refreshments included</span>
-                </div>
-                <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl">
-                  <div className="bg-[#96A78D]/20 p-2 rounded-lg">
-                    <CheckCircle className="w-4 h-4 text-[#96A78D]" />
-                  </div>
-                  <span className="text-white">Photos & memories</span>
-                </div>
-              </div>
-            </motion.div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

@@ -23,6 +23,8 @@ import {
   FiTrendingUp,
   FiShield,
   FiFileText,
+  FiGlobe,
+  FiServer,
 } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 
@@ -129,10 +131,40 @@ export default function Navbar() {
     setIsUserMenuOpen(false);
     setCurrentUser(null);
 
+    // Clear additional auth data if exists
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("refresh_token");
+
     // Dispatch logout event
     window.dispatchEvent(new Event(AUTH_EVENTS.LOGOUT));
 
     router.push("/");
+  };
+
+  // Function to handle DLT setting logout (specific for host)
+  const handleDLTLogout = () => {
+    // Clear DLT specific data
+    localStorage.removeItem("dlt_token");
+    localStorage.removeItem("dlt_settings");
+    localStorage.removeItem("host_dlt_config");
+    
+    // You might want to make an API call to invalidate DLT session
+    // api.post('/host/dlt/logout');
+    
+    alert("DLT settings logged out successfully");
+    setIsUserMenuOpen(false);
+  };
+
+  // Function to handle host setting logout
+  const handleHostSettingLogout = () => {
+    // Clear host specific settings
+    localStorage.removeItem("host_preferences");
+    localStorage.removeItem("host_config");
+    
+    alert("Host settings logged out successfully");
+    setIsUserMenuOpen(false);
   };
 
   const getUserRoleBadge = (role: string) => {
@@ -158,13 +190,23 @@ export default function Navbar() {
     }
   };
 
-  
+  // Function to get dynamic profile URL based on user ID
+  const getProfileUrl = (): string => {
+    if (!currentUser || !currentUser.id) {
+      return "/auth/login";
+    }
+    
+    return `/profile/${currentUser.id}`;
+  };
+
   const getMenuItems = () => {
+    const profileUrl = getProfileUrl();
+    
     const commonItems = [
       {
         label: "My Profile",
         icon: <FiUser className="w-4 h-4" />,
-        link: "/profile",
+        link: profileUrl,
       },
       {
         label: "My Events",
@@ -226,11 +268,69 @@ export default function Navbar() {
         label: "Host Settings",
         icon: <FiSettings className="w-4 h-4" />,
         link: "/host/settings",
+        children: [
+          {
+            label: "General Settings",
+            link: "/host/settings/general",
+          },
+          {
+            label: "DLT Configuration",
+            link: "/host/settings/dlt",
+            icon: <FiGlobe className="w-3 h-3" />,
+          },
+          {
+            label: "Payment Settings",
+            link: "/host/settings/payments",
+          },
+          {
+            label: "API Settings",
+            link: "/host/settings/api",
+            icon: <FiServer className="w-3 h-3" />,
+          },
+          {
+            label: "Logout DLT Settings",
+            onClick: handleDLTLogout,
+            icon: <FiLogOut className="w-3 h-3" />,
+            danger: true,
+          },
+          {
+            label: "Logout Host Settings",
+            onClick: handleHostSettingLogout,
+            icon: <FiLogOut className="w-3 h-3" />,
+            danger: true,
+          },
+        ]
       },
       {
         label: "Host Analytics",
         icon: <FiTrendingUp className="w-4 h-4" />,
         link: "/host/analytics",
+      },
+      // Add DLT specific menu item
+      {
+        label: "DLT Management",
+        icon: <FiGlobe className="w-4 h-4" />,
+        link: "/host/dlt",
+        children: [
+          {
+            label: "DLT Dashboard",
+            link: "/host/dlt/dashboard",
+          },
+          {
+            label: "DLT Configuration",
+            link: "/host/dlt/configuration",
+          },
+          {
+            label: "DLT Transactions",
+            link: "/host/dlt/transactions",
+          },
+          {
+            label: "DLT Logout",
+            onClick: handleDLTLogout,
+            icon: <FiLogOut className="w-3 h-3" />,
+            danger: true,
+          },
+        ]
       },
     ];
 
@@ -292,10 +392,117 @@ export default function Navbar() {
     return menuItems;
   };
 
+  // Helper function to render menu items with possible children
+  const renderMenuItem = (item: any, index: number, isMobile: boolean = false) => {
+    if (item.type === "divider") {
+      return <div key={index} className="my-1 border-white/10 border-t"></div>;
+    }
+
+    if (item.children) {
+      // For items with children (like Host Settings with DLT logout)
+      return (
+        <div key={index} className="group relative">
+          <button
+            className={`flex items-center justify-between w-full px-4 py-2.5 text-sm text-left transition-all duration-200 ${
+              isMobile ? 'py-3' : ''
+            } hover:bg-white/10 text-white`}
+          >
+            <div className="flex items-center space-x-3">
+              {item.icon}
+              <span>{item.label}</span>
+            </div>
+            <FiChevronDown className="w-4 h-4 group-hover:rotate-180 transition-transform duration-200" />
+          </button>
+          
+          {/* Dropdown for children */}
+          <div className="hidden group-hover:block top-0 left-full absolute bg-gradient-to-b from-[#234C6A]/95 to-[#96A78D]/95 shadow-xl backdrop-blur-md ml-1 py-2 border border-white/20 rounded-lg w-56">
+            {item.children.map((child: any, childIndex: number) => (
+              child.onClick ? (
+                <button
+                  key={childIndex}
+                  onClick={() => {
+                    child.onClick?.();
+                    setIsUserMenuOpen(false);
+                    if (isMobile) setIsOpen(false);
+                  }}
+                  className={`flex items-center space-x-3 w-full px-4 py-2.5 text-sm text-left transition-all duration-200 ${
+                    child.danger
+                      ? "hover:bg-gradient-to-r from-red-500/20 hover:from-red-500/30 to-rose-500/10 hover:to-rose-500/20 text-red-200"
+                      : "hover:bg-white/10 text-white"
+                  }`}
+                >
+                  {child.icon && <span className="mr-2">{child.icon}</span>}
+                  <span>{child.label}</span>
+                </button>
+              ) : (
+                <Link
+                  key={childIndex}
+                  href={child.link || "#"}
+                  className="flex items-center space-x-3 hover:bg-white/10 px-4 py-2.5 text-white text-sm transition-all duration-200"
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    if (isMobile) setIsOpen(false);
+                  }}
+                >
+                  {child.icon && <span className="mr-2">{child.icon}</span>}
+                  <span>{child.label}</span>
+                </Link>
+              )
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (item.onClick) {
+      return (
+        <button
+          key={index}
+          onClick={() => {
+            item.onClick?.();
+            setIsUserMenuOpen(false);
+            if (isMobile) setIsOpen(false);
+          }}
+          className={`flex items-center space-x-3 w-full px-4 py-2.5 text-sm text-left transition-all duration-200 ${
+            item.danger
+              ? "hover:bg-gradient-to-r from-red-500/20 hover:from-red-500/30 to-rose-500/10 hover:to-rose-500/20 text-red-200"
+              : "hover:bg-white/10 text-white"
+          }`}
+        >
+          {item.icon}
+          <span>{item.label}</span>
+        </button>
+      );
+    }
+
+    return (
+      <Link
+        key={index}
+        href={item.link || "#"}
+        className="flex items-center space-x-3 hover:bg-white/10 px-4 py-2.5 text-white text-sm transition-all duration-200"
+        onClick={() => {
+          setIsUserMenuOpen(false);
+          if (isMobile) setIsOpen(false);
+        }}
+      >
+        {item.icon}
+        <span>{item.label}</span>
+      </Link>
+    );
+  };
+
   const menuItems = getMenuItems();
 
   // Use currentUser for display
   const displayUser = currentUser;
+
+  // Function to get edit profile URL
+  const getEditProfileUrl = (): string => {
+    if (!currentUser || !currentUser.id) {
+      return "/auth/login";
+    }
+    return `/profile/${currentUser.id}/edit`;
+  };
 
   return (
     <nav className="top-0 z-50 sticky bg-gradient-to-r from-[#234C6A]/90 via-[#D2C1B6]/90 to-[#96A78D]/90 shadow-lg backdrop-blur-md border-white/20 border-b">
@@ -323,16 +530,25 @@ export default function Navbar() {
               <>
                 {/* User specific links */}
                 {displayUser.role === "user" && (
-                  <Link
-                    href="/my-events"
-                    className="flex items-center space-x-2 text-white/90 hover:text-white hover:scale-105 transition-all duration-200"
-                  >
-                    <FiCalendar />
-                    <span>My Events</span>
-                  </Link>
+                  <>
+                    <Link
+                      href="/my-events"
+                      className="flex items-center space-x-2 text-white/90 hover:text-white hover:scale-105 transition-all duration-200"
+                    >
+                      <FiCalendar />
+                      <span>My Events</span>
+                    </Link>
+                    <Link
+                      href={getProfileUrl()}
+                      className="flex items-center space-x-2 text-white/90 hover:text-white hover:scale-105 transition-all duration-200"
+                    >
+                      <FiUser />
+                      <span>Profile</span>
+                    </Link>
+                  </>
                 )}
 
-                {/* Host specific links */}
+                {/* Host specific links - Added DLT Management */}
                 {displayUser.role === "host" && (
                   <>
                     <Link
@@ -348,6 +564,21 @@ export default function Navbar() {
                     >
                       <FiPlusCircle />
                       <span>Create Event</span>
+                    </Link>
+                    {/* DLT Management Link */}
+                    <Link
+                      href="/host/dlt"
+                      className="flex items-center space-x-2 bg-gradient-to-r from-green-500/20 hover:from-green-500/30 to-emerald-500/10 hover:to-emerald-500/20 px-4 py-2 rounded-lg text-white hover:scale-105 transition-all duration-200"
+                    >
+                      <FiGlobe />
+                      <span>DLT Management</span>
+                    </Link>
+                    <Link
+                      href={getProfileUrl()}
+                      className="flex items-center space-x-2 text-white/90 hover:text-white hover:scale-105 transition-all duration-200"
+                    >
+                      <FiUser />
+                      <span>Profile</span>
                     </Link>
                   </>
                 )}
@@ -375,6 +606,13 @@ export default function Navbar() {
                     >
                       <FiCalendar />
                       <span>Manage Events</span>
+                    </Link>
+                    <Link
+                      href={getProfileUrl()}
+                      className="flex items-center space-x-2 text-white/90 hover:text-white hover:scale-105 transition-all duration-200"
+                    >
+                      <FiUser />
+                      <span>Profile</span>
                     </Link>
                   </>
                 )}
@@ -424,43 +662,17 @@ export default function Navbar() {
                           >
                             {getUserRoleBadge(displayUser.role).text}
                           </div>
+                          <Link
+                            href={getEditProfileUrl()}
+                            className="inline-block bg-white/10 hover:bg-white/20 mt-2 px-2 py-1 rounded text-white/80 hover:text-white text-xs transition-all duration-200"
+                            onClick={() => setIsUserMenuOpen(false)}
+                          >
+                            Edit Profile
+                          </Link>
                         </div>
 
                         <div className="py-1 max-h-80 overflow-y-auto">
-                          {menuItems.map((item, index) =>
-                            item.type === "divider" ? (
-                              <div
-                                key={index}
-                                className="my-1 border-white/10 border-t"
-                              ></div>
-                            ) : item.onClick ? (
-                              <button
-                                key={index}
-                                onClick={() => {
-                                  item.onClick?.();
-                                  setIsUserMenuOpen(false);
-                                }}
-                                className={`flex items-center space-x-3 w-full px-4 py-2.5 text-sm text-left transition-all duration-200 ${
-                                  item.danger
-                                    ? "hover:bg-gradient-to-r from-red-500/20 hover:from-red-500/30 to-rose-500/10 hover:to-rose-500/20 text-red-200"
-                                    : "hover:bg-white/10 text-white"
-                                }`}
-                              >
-                                {item.icon}
-                                <span>{item.label}</span>
-                              </button>
-                            ) : (
-                              <Link
-                                key={index}
-                                href={item.link || "#"}
-                                className="flex items-center space-x-3 hover:bg-white/10 px-4 py-2.5 text-white text-sm transition-all duration-200"
-                                onClick={() => setIsUserMenuOpen(false)}
-                              >
-                                {item.icon}
-                                <span>{item.label}</span>
-                              </Link>
-                            )
-                          )}
+                          {menuItems.map((item, index) => renderMenuItem(item, index))}
                         </div>
                       </div>
                     )}
@@ -539,6 +751,22 @@ export default function Navbar() {
                       >
                         {getUserRoleBadge(displayUser.role).text}
                       </div>
+                      <div className="flex space-x-2 mt-2">
+                        <Link
+                          href={getProfileUrl()}
+                          className="bg-white/10 hover:bg-white/20 px-2 py-1 rounded text-white/80 hover:text-white text-xs transition-all duration-200"
+                          onClick={() => setIsOpen(false)}
+                        >
+                          View Profile
+                        </Link>
+                        <Link
+                          href={getEditProfileUrl()}
+                          className="bg-white/20 hover:bg-white/30 px-2 py-1 rounded text-white hover:text-white text-xs transition-all duration-200"
+                          onClick={() => setIsOpen(false)}
+                        >
+                          Edit Profile
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -586,6 +814,15 @@ export default function Navbar() {
                         <FiPlusCircle />
                         <span>Create Event</span>
                       </Link>
+                      {/* DLT Management Mobile Link */}
+                      <Link
+                        href="/host/dlt"
+                        className="flex items-center space-x-3 bg-gradient-to-r from-green-500/20 hover:from-green-500/30 to-emerald-500/10 hover:to-emerald-500/20 px-4 py-3 rounded-lg text-white transition-all duration-200"
+                        onClick={() => setIsOpen(false)}
+                      >
+                        <FiGlobe />
+                        <span>DLT Management</span>
+                      </Link>
                     </>
                   )}
 
@@ -619,35 +856,7 @@ export default function Navbar() {
                   )}
 
                   {/* Mobile profile menu items */}
-                  {menuItems.map((item, index) =>
-                    item.type === "divider" ? null : item.onClick ? (
-                      <button
-                        key={index}
-                        onClick={() => {
-                          item.onClick?.();
-                          setIsOpen(false);
-                        }}
-                        className={`flex items-center space-x-3 px-4 py-3 text-left transition-all duration-200 ${
-                          item.danger
-                            ? "bg-gradient-to-r from-red-500/20 hover:from-red-500/30 to-rose-500/10 hover:to-rose-500/20 text-red-200 rounded-lg"
-                            : "hover:bg-white/10 text-white rounded-lg"
-                        }`}
-                      >
-                        {item.icon}
-                        <span>{item.label}</span>
-                      </button>
-                    ) : (
-                      <Link
-                        key={index}
-                        href={item.link || "#"}
-                        className="flex items-center space-x-3 hover:bg-white/10 px-4 py-3 rounded-lg text-white transition-all duration-200"
-                        onClick={() => setIsOpen(false)}
-                      >
-                        {item.icon}
-                        <span>{item.label}</span>
-                      </Link>
-                    )
-                  )}
+                  {menuItems.map((item, index) => renderMenuItem(item, index, true))}
                 </>
               ) : (
                 // Not logged in mobile links

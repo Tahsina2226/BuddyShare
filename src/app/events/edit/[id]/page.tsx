@@ -44,14 +44,19 @@ export default function EditEventPage() {
         const data = await response.json();
 
         if (data.success) {
+          const event = data.data.event;
+
           // Check if user is the host or admin
-          if (user?.role !== "admin" && data.data.event.host._id !== user?.id) {
+          const isAdmin = user?.role === "admin";
+          const isHost = event.host._id === user?.id;
+
+          // Allow editing if user is admin OR host
+          if (!isAdmin && !isHost) {
             setError("You are not authorized to edit this event");
             return;
           }
 
           // Format date for input
-          const event = data.data.event;
           const formattedDate = new Date(event.date)
             .toISOString()
             .split("T")[0];

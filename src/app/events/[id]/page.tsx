@@ -1,10 +1,32 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { EventDetails, Review } from "@/types/eventDetails";
-import { Heart, Share2, Bell, Loader2, AlertCircle, ArrowLeft, XCircle } from "lucide-react";
+import {
+  Heart,
+  Share2,
+  Bell,
+  Loader2,
+  AlertCircle,
+  ArrowLeft,
+  XCircle,
+  Sparkles,
+  X,
+  Rocket,
+  Crown,
+  Star,
+  Zap,
+  Shield,
+  AlertTriangle,
+  Clock,
+  Trophy,
+  Gift,
+  CheckCircle,
+  Trash2,
+  Edit,
+} from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import toast, { Toaster } from "react-hot-toast";
@@ -14,24 +36,334 @@ import { EventSidebar } from "@/components/EventSidebar";
 import { ParticipantsSection } from "@/components/ParticipantsSection";
 import { ReviewsSection } from "@/components/ReviewsSection";
 
-const toastStyle = {
-  style: {
-    background: "linear-gradient(135deg, #234C6A 0%, #1a3d57 100%)",
-    border: "2px solid rgba(255, 255, 255, 0.2)",
-    backdropFilter: "blur(10px)",
-    color: "#fff",
-    borderRadius: "16px",
-    padding: "16px 20px",
-    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.3)",
+// Custom Toast Hook
+const useToast = () => {
+  const toastShown = useRef<Record<string, boolean>>({});
+
+  const showToast = (type: string, id: string, ...args: any[]) => {
+    // Clear previous toast with same ID
+    if (toastShown.current[id]) {
+      toast.dismiss(toastShown.current[id] as any);
+    }
+
+    toastShown.current[id] = true;
+
+    setTimeout(() => {
+      delete toastShown.current[id];
+    }, 1000);
+
+    let toastId: string | undefined;
+
+    switch (type) {
+      case "success":
+        fancyToast.success(...args);
+        break;
+      case "error":
+        fancyToast.error(...args);
+        break;
+      case "info":
+        fancyToast.info(...args);
+        break;
+      case "custom":
+        toastId = toast.custom(...args) as string;
+        break;
+      case "promise":
+        toastId = toast.promise(
+          ...(args as [Promise<any>, any, any?])
+        ) as string;
+        break;
+      default:
+        toastId = toast(...args) as string;
+    }
+
+    if (toastId) {
+      toastShown.current[id] = toastId as any;
+    }
+
+    return toastId;
+  };
+
+  return { showToast };
+};
+
+// Fancy Toast Functions
+const fancyToast = {
+  success: (message: string) => {
+    return toast.custom(
+      (t) => (
+        <motion.div
+          initial={{ opacity: 0, y: -20, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -20, scale: 0.9 }}
+          className="relative bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 shadow-2xl backdrop-blur-xl p-6 border-2 border-emerald-400/30 rounded-2xl max-w-md"
+        >
+          <div className="flex items-start gap-4">
+            <div className="relative">
+              <div className="absolute inset-0 bg-white/20 blur-lg rounded-full"></div>
+              <div className="relative bg-white/20 p-3 rounded-full">
+                <Sparkles className="w-6 h-6 text-white" />
+              </div>
+            </div>
+            <div className="flex-1">
+              <h3 className="mb-1 font-bold text-white text-lg">Success!</h3>
+              <p className="text-white/90">{message}</p>
+            </div>
+            <button
+              onClick={() => toast.dismiss(t.id)}
+              className="bg-white/10 hover:bg-white/20 p-2 rounded-xl transition-colors"
+            >
+              <X className="w-5 h-5 text-white" />
+            </button>
+          </div>
+          <div className="-top-1 -right-1 absolute">
+            <div className="relative">
+              <div className="absolute inset-0 bg-white/20 blur-lg rounded-full"></div>
+              <Star className="relative w-4 h-4 text-yellow-300 animate-pulse" />
+            </div>
+          </div>
+        </motion.div>
+      ),
+      { duration: 3000, position: "top-right" }
+    );
   },
-  duration: 4000,
-  position: "top-right" as const,
+
+  error: (message: string) => {
+    return toast.custom(
+      (t) => (
+        <motion.div
+          initial={{ opacity: 0, y: -20, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -20, scale: 0.9 }}
+          className="relative bg-gradient-to-r from-rose-500 via-rose-600 to-pink-600 shadow-2xl backdrop-blur-xl p-6 border-2 border-rose-400/30 rounded-2xl max-w-md"
+        >
+          <div className="flex items-start gap-4">
+            <div className="relative">
+              <div className="absolute inset-0 bg-white/20 blur-lg rounded-full"></div>
+              <div className="relative bg-white/20 p-3 rounded-full">
+                <AlertCircle className="w-6 h-6 text-white" />
+              </div>
+            </div>
+            <div className="flex-1">
+              <h3 className="mb-1 font-bold text-white text-lg">Oops!</h3>
+              <p className="text-white/90">{message}</p>
+            </div>
+            <button
+              onClick={() => toast.dismiss(t.id)}
+              className="bg-white/10 hover:bg-white/20 p-2 rounded-xl transition-colors"
+            >
+              <X className="w-5 h-5 text-white" />
+            </button>
+          </div>
+          <div className="right-2 bottom-2 absolute opacity-30">
+            <Zap className="w-8 h-8 text-white" />
+          </div>
+        </motion.div>
+      ),
+      { duration: 4000, position: "top-right" }
+    );
+  },
+
+  info: (message: string, title: string = "Info") => {
+    return toast.custom(
+      (t) => (
+        <motion.div
+          initial={{ opacity: 0, y: -20, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -20, scale: 0.9 }}
+          className="relative bg-gradient-to-r from-cyan-500 via-cyan-600 to-sky-600 shadow-2xl backdrop-blur-xl p-6 border-2 border-cyan-400/30 rounded-2xl max-w-md"
+        >
+          <div className="flex items-start gap-4">
+            <div className="relative">
+              <div className="absolute inset-0 bg-white/20 blur-lg rounded-full"></div>
+              <div className="relative bg-white/20 p-3 rounded-full">
+                <Rocket className="w-6 h-6 text-white" />
+              </div>
+            </div>
+            <div className="flex-1">
+              <h3 className="mb-1 font-bold text-white text-lg">{title}</h3>
+              <p className="text-white/90">{message}</p>
+            </div>
+            <button
+              onClick={() => toast.dismiss(t.id)}
+              className="bg-white/10 hover:bg-white/20 p-2 rounded-xl transition-colors"
+            >
+              <X className="w-5 h-5 text-white" />
+            </button>
+          </div>
+          <div className="-bottom-2 -left-2 absolute opacity-20">
+            <Crown className="w-12 h-12 text-white" />
+          </div>
+        </motion.div>
+      ),
+      { duration: 3000, position: "top-right" }
+    );
+  },
+
+  confirmDelete: (
+    eventTitle: string,
+    onConfirm: () => void,
+    onCancel: () => void,
+    isAdmin: boolean = false,
+    isHost: boolean = false
+  ) => {
+    return toast.custom(
+      (t) => (
+        <motion.div
+          initial={{ opacity: 0, y: -20, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -20, scale: 0.9 }}
+          className="relative bg-gradient-to-br from-red-500 via-rose-600 to-pink-700 shadow-2xl backdrop-blur-xl p-8 border-2 border-red-400/40 rounded-2xl max-w-lg"
+        >
+          <div className="-top-3 -right-3 absolute">
+            <div className="relative">
+              <div className="absolute inset-0 bg-red-500/20 blur-xl rounded-full"></div>
+              <div className="relative bg-red-500/20 p-3 border-2 border-red-400/30 rounded-full">
+                <AlertTriangle className="w-8 h-8 text-white animate-pulse" />
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="relative">
+                <div className="absolute inset-0 bg-white/10 blur-lg rounded-full"></div>
+                <div className="relative bg-white/10 p-3 rounded-full">
+                  <Shield className="w-8 h-8 text-white" />
+                </div>
+              </div>
+              <div>
+                <h3 className="font-bold text-white text-xl">
+                  ⚠️ Critical Action
+                </h3>
+                <p className="text-white/70 text-sm">
+                  {isAdmin
+                    ? "Administrative Deletion"
+                    : isHost
+                    ? "Host Deletion"
+                    : "Event Deletion"}
+                </p>
+              </div>
+            </div>
+
+            {isHost && (
+              <div className="bg-gradient-to-r from-yellow-500/10 to-amber-500/10 mb-4 p-4 border border-yellow-400/20 rounded-xl">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-yellow-400" />
+                  <p className="text-yellow-300 text-sm">
+                    ⚠️ As the host, deleting this event will remove it
+                    permanently.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {isAdmin && !isHost && (
+              <div className="bg-gradient-to-r from-blue-500/10 to-indigo-500/10 mb-4 p-4 border border-blue-400/20 rounded-xl">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-blue-400" />
+                  <p className="text-blue-300 text-sm">
+                    ⚠️ You are deleting this event as an administrator.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="bg-gradient-to-r from-red-500/10 to-pink-500/10 mb-6 p-6 border border-red-400/20 rounded-xl">
+              <div className="flex items-start gap-3">
+                <div className="mt-1">
+                  <Clock className="w-5 h-5 text-red-300" />
+                </div>
+                <div>
+                  <h4 className="mb-2 font-bold text-white">
+                    Warning: Permanent Deletion
+                  </h4>
+                  <p className="text-white/80 text-sm">
+                    You are about to permanently delete{" "}
+                    <span className="font-bold text-white">"{eventTitle}"</span>
+                    . This will remove all event data including:
+                  </p>
+                  <ul className="space-y-2 mt-3 text-white/70 text-sm">
+                    <li className="flex items-center gap-2">
+                      <div className="bg-red-400 rounded-full w-1.5 h-1.5"></div>
+                      <span>All participant registrations</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="bg-red-400 rounded-full w-1.5 h-1.5"></div>
+                      <span>Event statistics and analytics</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="bg-red-400 rounded-full w-1.5 h-1.5"></div>
+                      <span>Photos and media content</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="bg-red-400 rounded-full w-1.5 h-1.5"></div>
+                      <span>Reviews and ratings</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-black/20 p-4 border border-white/10 rounded-xl">
+              <div className="flex items-center gap-3">
+                <Gift className="w-5 h-5 text-yellow-400" />
+                <p className="font-medium text-yellow-300 text-sm">
+                  Consider archiving instead to preserve data
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                onCancel();
+                toast.dismiss(t.id);
+                fancyToast.info(
+                  "Deletion cancelled. Your event is safe.",
+                  "Action Cancelled"
+                );
+              }}
+              className="group relative flex-1 bg-gradient-to-r from-white/10 hover:from-white/20 to-white/5 hover:to-white/10 shadow-lg py-4 border-2 border-white/20 rounded-xl overflow-hidden font-bold text-white transition-all duration-300"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-green-500/0 group-hover:from-green-500/10 to-emerald-500/0 group-hover:to-emerald-500/10 transition-all"></div>
+              <div className="relative flex justify-center items-center gap-2">
+                <CheckCircle className="w-5 h-5" />
+                <span>Keep Event</span>
+              </div>
+            </button>
+            <button
+              onClick={() => {
+                onConfirm();
+                toast.dismiss(t.id);
+              }}
+              className="group relative flex-1 bg-gradient-to-r from-red-600 hover:from-red-700 to-rose-700 hover:to-rose-800 shadow-lg py-4 border-2 border-red-500/30 rounded-xl overflow-hidden font-bold text-white transition-all duration-300"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-white/0 group-hover:from-white/10 to-white/0 group-hover:to-white/5 transition-all"></div>
+              <div className="relative flex justify-center items-center gap-2">
+                <Trash2 className="w-5 h-5" />
+                <span>Delete Forever</span>
+              </div>
+            </button>
+          </div>
+
+          <div className="-bottom-4 -left-4 absolute opacity-10">
+            <Trophy className="w-24 h-24 text-white rotate-12" />
+          </div>
+        </motion.div>
+      ),
+      { duration: Infinity, position: "top-center" }
+    );
+  },
 };
 
 export default function EventDetailsPage() {
-  const { id } = useParams();
+  const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
+
+  // useParams থেকে id স্ট্রিং হিসেবে নিন
+  const id = Array.isArray(params.id) ? params.id[0] : params.id;
 
   const [event, setEvent] = useState<EventDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -42,7 +374,7 @@ export default function EventDetailsPage() {
     canJoin: boolean;
     reasons: string[];
   } | null>(null);
-  
+
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loadingReviews, setLoadingReviews] = useState(false);
   const [showAllReviews, setShowAllReviews] = useState(false);
@@ -54,38 +386,79 @@ export default function EventDetailsPage() {
   }>({ rating: 0, comment: "" });
   const [submittingReview, setSubmittingReview] = useState(false);
   const [userHasReview, setUserHasReview] = useState(false);
+  const [isUserAdmin, setIsUserAdmin] = useState(false);
+  const [isUserHostOfThisEvent, setIsUserHostOfThisEvent] = useState(false);
+
+  const { showToast } = useToast();
 
   useEffect(() => {
-    fetchEventDetails();
-    if (user) {
-      checkCanJoin();
-      fetchReviews();
-      checkUserReview();
+    if (id) {
+      fetchEventDetails();
+      if (user) {
+        checkCanJoin();
+        fetchReviews();
+        checkUserReview();
+        checkUserRole();
+      }
     }
   }, [id, user]);
 
   const fetchEventDetails = async () => {
+    if (!id) return;
+
     try {
       const response = await fetch(`http://localhost:5000/api/events/${id}`);
       if (!response.ok) throw new Error("Event not found");
       const data = await response.json();
-      if (data.success) setEvent({ ...data.data.event });
+      if (data.success) {
+        setEvent({ ...data.data.event });
+        checkIfUserIsHost(data.data.event);
+      }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to load event";
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to load event";
       setError(errorMessage);
-      toast.error(errorMessage, { ...toastStyle, icon: "❌" });
+      showToast("error", "load-error", errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
+  const checkUserRole = () => {
+    if (!user) {
+      setIsUserAdmin(false);
+      setIsUserHostOfThisEvent(false);
+      return;
+    }
+
+    setIsUserAdmin(user.role === "admin");
+  };
+
+  const checkIfUserIsHost = (eventData: EventDetails) => {
+    if (!user || !eventData) {
+      setIsUserHostOfThisEvent(false);
+      return;
+    }
+
+    setIsUserHostOfThisEvent(eventData.host._id === user.id);
+  };
+
   const fetchReviews = async () => {
+    if (!id) return;
+
     try {
       setLoadingReviews(true);
-      const response = await fetch(`http://localhost:5000/api/events/${id}/reviews`);
+      const response = await fetch(
+        `http://localhost:5000/api/events/${id}/reviews`
+      );
       if (response.ok) {
         const data = await response.json();
-        if (data.success) setReviews(data.data.reviews || []);
+        if (data.success) {
+          const userReviews = (data.data.reviews || []).filter(
+            (review: Review) => review.user && review.user.role === "user"
+          );
+          setReviews(userReviews);
+        }
       }
     } catch (err) {
       console.error("Error fetching reviews:", err);
@@ -95,11 +468,14 @@ export default function EventDetailsPage() {
   };
 
   const checkUserReview = async () => {
-    if (!user) return;
+    if (!user || user.role !== "user" || !id) return;
     try {
-      const response = await fetch(`http://localhost:5000/api/events/${id}/reviews/check`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-      });
+      const response = await fetch(
+        `http://localhost:5000/api/events/${id}/reviews/check`,
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        }
+      );
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.data.review) {
@@ -117,10 +493,23 @@ export default function EventDetailsPage() {
   };
 
   const checkCanJoin = async () => {
-    try {
-      const response = await fetch(`http://localhost:5000/api/events/${id}/can-join`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+    if (!user || user.role !== "user" || !id) {
+      setCanJoinInfo({
+        canJoin: false,
+        reasons: [
+          "Only regular users can join events. Hosts and admins cannot join.",
+        ],
       });
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/events/${id}/can-join`,
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        }
+      );
       if (response.ok) {
         const data = await response.json();
         setCanJoinInfo({ ...data.data });
@@ -131,57 +520,337 @@ export default function EventDetailsPage() {
     }
   };
 
-  const handleJoinEvent = async () => {
-    if (!user) {
-      toast.custom((t) => (
+  const handleEditEvent = () => {
+    if (!canEditDeleteEvent()) {
+      showToast(
+        "error",
+        "edit-auth-error",
+        "You are not authorized to edit this event"
+      );
+      return;
+    }
+    router.push(`/events/edit/${id}`);
+  };
+
+  const handleDeleteEvent = async () => {
+    console.log("Delete event clicked");
+    if (!canEditDeleteEvent() || !event) {
+      showToast(
+        "error",
+        "delete-auth-error",
+        "You are not authorized to delete this event"
+      );
+      return;
+    }
+
+    showToast(
+      "custom",
+      `delete-event-confirm-${id}`,
+      (t) => (
         <motion.div
-          initial={{ opacity: 0, x: 50 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: 50 }}
-          className="bg-gradient-to-r from-[#234C6A] to-[#1a3d57] shadow-2xl backdrop-blur-xl p-4 border-2 border-white/20 rounded-xl"
+          initial={{ opacity: 0, y: -20, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -20, scale: 0.9 }}
+          className="relative bg-gradient-to-br from-red-500 via-rose-600 to-pink-700 shadow-2xl backdrop-blur-xl p-8 border-2 border-red-400/40 rounded-2xl max-w-lg"
         >
-          <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-br from-[#96A78D] to-[#889c7e] p-2 rounded-lg">
-              <AlertCircle className="w-5 h-5 text-white" />
+          <div className="-top-3 -right-3 absolute">
+            <div className="relative">
+              <div className="absolute inset-0 bg-red-500/20 blur-xl rounded-full"></div>
+              <div className="relative bg-red-500/20 p-3 border-2 border-red-400/30 rounded-full">
+                <AlertTriangle className="w-8 h-8 text-white animate-pulse" />
+              </div>
             </div>
-            <div>
-              <p className="font-bold text-white">Login Required</p>
-              <p className="text-white/70 text-sm">Please login to join events</p>
+          </div>
+
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="relative">
+                <div className="absolute inset-0 bg-white/10 blur-lg rounded-full"></div>
+                <div className="relative bg-white/10 p-3 rounded-full">
+                  <Shield className="w-8 h-8 text-white" />
+                </div>
+              </div>
+              <div>
+                <h3 className="font-bold text-white text-xl">
+                  ⚠️ Critical Action
+                </h3>
+                <p className="text-white/70 text-sm">
+                  {isUserAdmin
+                    ? "Administrative Deletion"
+                    : isUserHostOfThisEvent
+                    ? "Host Deletion"
+                    : "Event Deletion"}
+                </p>
+              </div>
             </div>
+
+            {isUserHostOfThisEvent && (
+              <div className="bg-gradient-to-r from-yellow-500/10 to-amber-500/10 mb-4 p-4 border border-yellow-400/20 rounded-xl">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-yellow-400" />
+                  <p className="text-yellow-300 text-sm">
+                    ⚠️ As the host, deleting this event will remove it
+                    permanently.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {isUserAdmin && !isUserHostOfThisEvent && (
+              <div className="bg-gradient-to-r from-blue-500/10 to-indigo-500/10 mb-4 p-4 border border-blue-400/20 rounded-xl">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-blue-400" />
+                  <p className="text-blue-300 text-sm">
+                    ⚠️ You are deleting this event as an administrator.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="bg-gradient-to-r from-red-500/10 to-pink-500/10 mb-6 p-6 border border-red-400/20 rounded-xl">
+              <div className="flex items-start gap-3">
+                <div className="mt-1">
+                  <Clock className="w-5 h-5 text-red-300" />
+                </div>
+                <div>
+                  <h4 className="mb-2 font-bold text-white">
+                    Warning: Permanent Deletion
+                  </h4>
+                  <p className="text-white/80 text-sm">
+                    You are about to permanently delete{" "}
+                    <span className="font-bold text-white">
+                      "{event.title}"
+                    </span>
+                    . This will remove all event data including:
+                  </p>
+                  <ul className="space-y-2 mt-3 text-white/70 text-sm">
+                    <li className="flex items-center gap-2">
+                      <div className="bg-red-400 rounded-full w-1.5 h-1.5"></div>
+                      <span>All participant registrations</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="bg-red-400 rounded-full w-1.5 h-1.5"></div>
+                      <span>Event statistics and analytics</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="bg-red-400 rounded-full w-1.5 h-1.5"></div>
+                      <span>Photos and media content</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="bg-red-400 rounded-full w-1.5 h-1.5"></div>
+                      <span>Reviews and ratings</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-black/20 p-4 border border-white/10 rounded-xl">
+              <div className="flex items-center gap-3">
+                <Gift className="w-5 h-5 text-yellow-400" />
+                <p className="font-medium text-yellow-300 text-sm">
+                  Consider archiving instead to preserve data
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
             <button
               onClick={() => {
-                router.push("/login");
+                showToast(
+                  "info",
+                  "delete-cancelled",
+                  "Deletion cancelled. Your event is safe.",
+                  "Action Cancelled"
+                );
                 toast.dismiss(t.id);
               }}
-              className="bg-gradient-to-r from-[#96A78D] hover:from-[#889c7e] to-[#889c7e] hover:to-[#96A78D] ml-4 px-4 py-2 rounded-lg font-bold text-white text-sm transition-all"
+              className="group relative flex-1 bg-gradient-to-r from-white/10 hover:from-white/20 to-white/5 hover:to-white/10 shadow-lg py-4 border-2 border-white/20 rounded-xl overflow-hidden font-bold text-white transition-all duration-300"
             >
-              Login
+              <div className="absolute inset-0 bg-gradient-to-r from-green-500/0 group-hover:from-green-500/10 to-emerald-500/0 group-hover:to-emerald-500/10 transition-all"></div>
+              <div className="relative flex justify-center items-center gap-2">
+                <CheckCircle className="w-5 h-5" />
+                <span>Keep Event</span>
+              </div>
+            </button>
+            <button
+              onClick={async () => {
+                toast.dismiss(t.id);
+                await performDeleteEvent();
+              }}
+              className="group relative flex-1 bg-gradient-to-r from-red-600 hover:from-red-700 to-rose-700 hover:to-rose-800 shadow-lg py-4 border-2 border-red-500/30 rounded-xl overflow-hidden font-bold text-white transition-all duration-300"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-white/0 group-hover:from-white/10 to-white/0 group-hover:to-white/5 transition-all"></div>
+              <div className="relative flex justify-center items-center gap-2">
+                <Trash2 className="w-5 h-5" />
+                <span>Delete Forever</span>
+              </div>
             </button>
           </div>
+
+          <div className="-bottom-4 -left-4 absolute opacity-10">
+            <Trophy className="w-24 h-24 text-white rotate-12" />
+          </div>
         </motion.div>
-      ));
+      ),
+      { duration: Infinity, position: "top-center" }
+    );
+  };
+
+  const performDeleteEvent = async () => {
+    if (!id) return;
+
+    try {
+      const loadingToast = showToast(
+        "custom",
+        "delete-loading",
+        (t) => (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            className="relative bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-600 shadow-2xl backdrop-blur-xl p-6 border-2 border-blue-400/30 rounded-2xl max-w-md"
+          >
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="absolute inset-0 bg-white/20 blur-lg rounded-full"></div>
+                <div className="relative">
+                  <Loader2 className="w-6 h-6 text-white animate-spin" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <h3 className="mb-1 font-bold text-white text-lg">
+                  Deleting Event...
+                </h3>
+                <p className="text-white/90">
+                  Please wait while we delete "{event?.title}"
+                </p>
+              </div>
+              <div className="flex space-x-1">
+                <div
+                  className="bg-white/60 rounded-full w-2 h-2 animate-bounce"
+                  style={{ animationDelay: "0ms" }}
+                ></div>
+                <div
+                  className="bg-white/60 rounded-full w-2 h-2 animate-bounce"
+                  style={{ animationDelay: "150ms" }}
+                ></div>
+                <div
+                  className="bg-white/60 rounded-full w-2 h-2 animate-bounce"
+                  style={{ animationDelay: "300ms" }}
+                ></div>
+              </div>
+            </div>
+          </motion.div>
+        ),
+        { duration: Infinity, position: "top-right" }
+      );
+
+      const response = await fetch(`http://localhost:5000/api/events/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.dismiss(loadingToast);
+        showToast(
+          "success",
+          "delete-success",
+          `"${event?.title}" deleted successfully!`
+        );
+        router.push("/events");
+      } else {
+        throw new Error(data.message || "Failed to delete event");
+      }
+    } catch (err) {
+      showToast(
+        "error",
+        "delete-error",
+        err instanceof Error ? err.message : "Failed to delete event"
+      );
+    }
+  };
+
+  const canEditDeleteEvent = (): boolean => {
+    if (!user || !event) return false;
+    return isUserHostOfThisEvent || isUserAdmin;
+  };
+
+  const handleJoinEvent = async () => {
+    if (!user || !id) {
+      showToast(
+        "custom",
+        "login-required",
+        (t) => (
+          <motion.div
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 50 }}
+            className="bg-gradient-to-r from-[#234C6A] to-[#1a3d57] shadow-2xl backdrop-blur-xl p-4 border-2 border-white/20 rounded-xl"
+          >
+            <div className="flex items-center gap-3">
+              <div className="bg-gradient-to-br from-[#96A78D] to-[#889c7e] p-2 rounded-lg">
+                <AlertCircle className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="font-bold text-white">Login Required</p>
+                <p className="text-white/70 text-sm">
+                  Please login as a user to join events
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  router.push("/login");
+                  toast.dismiss(t.id);
+                }}
+                className="bg-gradient-to-r from-[#96A78D] hover:from-[#889c7e] to-[#889c7e] hover:to-[#96A78D] ml-4 px-4 py-2 rounded-lg font-bold text-white text-sm transition-all"
+              >
+                Login
+              </button>
+            </div>
+          </motion.div>
+        ),
+        { duration: 4000, position: "top-right" }
+      );
+      return;
+    }
+
+    if (user.role !== "user") {
+      showToast(
+        "error",
+        "join-role-error",
+        "Only regular users can join events. Hosts and admins cannot join events."
+      );
       return;
     }
 
     try {
       setJoining(true);
-      const response = await fetch(`http://localhost:5000/api/events/${id}/join`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
+      const response = await fetch(
+        `http://localhost:5000/api/events/${id}/join`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
       const data = await response.json();
       if (data.success) {
-        if (event) {
+        if (event && user) {
           const updatedParticipants = [
-            ...event.participants,
+            ...(event.participants || []),
             {
               _id: user.id,
               name: user.name || "User",
               avatar: user.avatar,
               location: user.location || "Unknown",
+              role: user.role,
             },
           ];
           setEvent({
@@ -192,66 +861,94 @@ export default function EventDetailsPage() {
         }
         await fetchEventDetails();
         await checkCanJoin();
-        toast.success("Successfully joined the event!", { ...toastStyle, icon: "🎉" });
+        showToast("success", "join-success", "Successfully joined the event!");
       } else throw new Error(data.message || "Failed to join event");
     } catch (err) {
       console.error("Error joining event:", err);
-      toast.error(err instanceof Error ? err.message : "Failed to join event", { ...toastStyle, icon: "❌" });
+      showToast(
+        "error",
+        "join-error",
+        err instanceof Error ? err.message : "Failed to join event"
+      );
     } finally {
       setJoining(false);
     }
   };
 
   const handleLeaveEvent = async () => {
-    if (!user) return;
-    toast.custom((t) => (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.9 }}
-        className="bg-gradient-to-r from-[#234C6A] to-[#1a3d57] shadow-2xl backdrop-blur-xl p-6 border-2 border-white/20 rounded-xl max-w-sm"
-      >
-        <div className="flex items-start gap-3 mb-4">
-          <div className="bg-gradient-to-br from-[#D2C1B6] to-[#c4b1a6] p-2 rounded-lg">
-            <AlertCircle className="w-5 h-5 text-white" />
+    if (!user || !id || !event) return;
+
+    if (user.role !== "user") {
+      showToast(
+        "error",
+        "leave-role-error",
+        "Only regular users can leave events"
+      );
+      return;
+    }
+
+    showToast(
+      "custom",
+      `leave-event-${id}`,
+      (t) => (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.9 }}
+          className="bg-gradient-to-r from-[#234C6A] to-[#1a3d57] shadow-2xl backdrop-blur-xl p-6 border-2 border-white/20 rounded-xl max-w-sm"
+        >
+          <div className="flex items-start gap-3 mb-4">
+            <div className="bg-gradient-to-br from-[#D2C1B6] to-[#c4b1a6] p-2 rounded-lg">
+              <AlertCircle className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="font-bold text-white text-lg">Leave Event?</p>
+              <p className="mt-1 text-white/70">
+                Are you sure you want to leave "{event.title}"?
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="font-bold text-white text-lg">Leave Event?</p>
-            <p className="mt-1 text-white/70">Are you sure you want to leave "{event?.title}"?</p>
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={() => toast.dismiss(t.id)}
+              className="bg-white/10 hover:bg-white/20 backdrop-blur-sm px-4 py-2 border border-white/20 rounded-lg font-medium text-white transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={async () => {
+                toast.dismiss(t.id);
+                await performLeaveEvent();
+              }}
+              className="bg-gradient-to-r from-[#D2C1B6] hover:from-[#c4b1a6] to-[#c4b1a6] hover:to-[#D2C1B6] px-4 py-2 rounded-lg font-bold text-white transition-all"
+            >
+              Yes, Leave
+            </button>
           </div>
-        </div>
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={() => toast.dismiss(t.id)}
-            className="bg-white/10 hover:bg-white/20 backdrop-blur-sm px-4 py-2 border border-white/20 rounded-lg font-medium text-white transition-all"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={async () => {
-              toast.dismiss(t.id);
-              await performLeaveEvent();
-            }}
-            className="bg-gradient-to-r from-[#D2C1B6] hover:from-[#c4b1a6] to-[#c4b1a6] hover:to-[#D2C1B6] px-4 py-2 rounded-lg font-bold text-white transition-all"
-          >
-            Yes, Leave
-          </button>
-        </div>
-      </motion.div>
-    ));
+        </motion.div>
+      ),
+      { duration: Infinity, position: "top-center" }
+    );
   };
 
   const performLeaveEvent = async () => {
+    if (!id) return;
+
     try {
       setLeaving(true);
-      const response = await fetch(`http://localhost:5000/api/events/${id}/leave`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-      });
+      const response = await fetch(
+        `http://localhost:5000/api/events/${id}/leave`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        }
+      );
       const data = await response.json();
       if (data.success) {
         if (event && user) {
-          const updatedParticipants = event.participants.filter((p) => p._id !== user.id);
+          const updatedParticipants = (event.participants || []).filter(
+            (p) => p._id !== user.id
+          );
           setEvent({
             ...event,
             currentParticipants: updatedParticipants.length,
@@ -260,23 +957,32 @@ export default function EventDetailsPage() {
         }
         await fetchEventDetails();
         await checkCanJoin();
-        toast.success("Successfully left the event!", { ...toastStyle, icon: "👋" });
+        showToast("success", "leave-success", "Successfully left the event!");
       } else throw new Error(data.message || "Failed to leave event");
     } catch (err) {
       console.error("Error leaving event:", err);
-      toast.error(err instanceof Error ? err.message : "Failed to leave event", { ...toastStyle, icon: "❌" });
+      showToast(
+        "error",
+        "leave-error",
+        err instanceof Error ? err.message : "Failed to leave event"
+      );
     } finally {
       setLeaving(false);
     }
   };
 
   const handleSubmitReview = async () => {
-    if (!user) {
-      toast.error("Please login to submit a review", { ...toastStyle, icon: "🔒" });
+    if (!user || user.role !== "user" || !id) {
+      showToast(
+        "error",
+        "review-auth-error",
+        "Only regular users can submit reviews. Hosts and admins cannot submit reviews."
+      );
       return;
     }
+
     if (!userReview.rating) {
-      toast.error("Please provide a rating", { ...toastStyle, icon: "⭐" });
+      showToast("error", "review-rating-error", "Please provide a rating");
       return;
     }
     try {
@@ -299,68 +1005,103 @@ export default function EventDetailsPage() {
       });
       const data = await response.json();
       if (data.success) {
-        toast.success(userHasReview ? "Review updated successfully!" : "Review submitted successfully!", { ...toastStyle, icon: "🎉" });
+        showToast(
+          "success",
+          "review-submit-success",
+          userHasReview
+            ? "Review updated successfully!"
+            : "Review submitted successfully!"
+        );
         await fetchReviews();
         await fetchEventDetails();
         await checkUserReview();
         setShowReviewForm(false);
       } else throw new Error(data.message || "Failed to submit review");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to submit review", { ...toastStyle, icon: "❌" });
+      showToast(
+        "error",
+        "review-submit-error",
+        err instanceof Error ? err.message : "Failed to submit review"
+      );
     } finally {
       setSubmittingReview(false);
     }
   };
 
   const handleDeleteReview = async () => {
-    if (!userReview._id) return;
-    toast.custom((t) => (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.9 }}
-        className="bg-gradient-to-r from-[#234C6A] to-[#1a3d57] shadow-2xl backdrop-blur-xl p-6 border-2 border-white/20 rounded-xl max-w-sm"
-      >
-        <div className="flex items-start gap-3 mb-4">
-          <div className="bg-gradient-to-br from-[#D2C1B6] to-[#c4b1a6] p-2 rounded-lg">
-            <AlertCircle className="w-5 h-5 text-white" />
+    if (!userReview._id || !id) return;
+
+    if (!user || user.role !== "user") {
+      showToast(
+        "error",
+        "review-delete-auth",
+        "Only regular users can delete reviews"
+      );
+      return;
+    }
+
+    showToast(
+      "custom",
+      `delete-review-${id}`,
+      (t) => (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.9 }}
+          className="bg-gradient-to-r from-[#234C6A] to-[#1a3d57] shadow-2xl backdrop-blur-xl p-6 border-2 border-white/20 rounded-xl max-w-sm"
+        >
+          <div className="flex items-start gap-3 mb-4">
+            <div className="bg-gradient-to-br from-[#D2C1B6] to-[#c4b1a6] p-2 rounded-lg">
+              <AlertCircle className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="font-bold text-white text-lg">Delete Review?</p>
+              <p className="mt-1 text-white/70">
+                Are you sure you want to delete your review? This action cannot
+                be undone.
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="font-bold text-white text-lg">Delete Review?</p>
-            <p className="mt-1 text-white/70">Are you sure you want to delete your review? This action cannot be undone.</p>
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={() => toast.dismiss(t.id)}
+              className="bg-white/10 hover:bg-white/20 backdrop-blur-sm px-4 py-2 border border-white/20 rounded-lg font-medium text-white transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={async () => {
+                toast.dismiss(t.id);
+                await performDeleteReview();
+              }}
+              className="bg-gradient-to-r from-[#D2C1B6] hover:from-[#c4b1a6] to-[#c4b1a6] hover:to-[#D2C1B6] px-4 py-2 rounded-lg font-bold text-white transition-all"
+            >
+              Yes, Delete
+            </button>
           </div>
-        </div>
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={() => toast.dismiss(t.id)}
-            className="bg-white/10 hover:bg-white/20 backdrop-blur-sm px-4 py-2 border border-white/20 rounded-lg font-medium text-white transition-all"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={async () => {
-              toast.dismiss(t.id);
-              await performDeleteReview();
-            }}
-            className="bg-gradient-to-r from-[#D2C1B6] hover:from-[#c4b1a6] to-[#c4b1a6] hover:to-[#D2C1B6] px-4 py-2 rounded-lg font-bold text-white transition-all"
-          >
-            Yes, Delete
-          </button>
-        </div>
-      </motion.div>
-    ));
+        </motion.div>
+      ),
+      { duration: Infinity, position: "top-center" }
+    );
   };
 
   const performDeleteReview = async () => {
-    if (!userReview._id) return;
+    if (!userReview._id || !id) return;
     try {
-      const response = await fetch(`http://localhost:5000/api/events/${id}/reviews/${userReview._id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-      });
+      const response = await fetch(
+        `http://localhost:5000/api/events/${id}/reviews/${userReview._id}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        }
+      );
       const data = await response.json();
       if (data.success) {
-        toast.success("Review deleted successfully!", { ...toastStyle, icon: "🗑️" });
+        showToast(
+          "success",
+          "review-delete-success",
+          "Review deleted successfully!"
+        );
         await fetchReviews();
         await fetchEventDetails();
         await checkUserReview();
@@ -368,73 +1109,97 @@ export default function EventDetailsPage() {
         setShowReviewForm(false);
       }
     } catch (err) {
-      toast.error("Failed to delete review", { ...toastStyle, icon: "❌" });
+      showToast("error", "review-delete-error", "Failed to delete review");
     }
   };
 
   const handleLikeEvent = () => {
-    toast(
+    showToast(
+      "custom",
+      "like-event",
       (t) => (
-        <div className="flex items-center gap-3">
-          <div className="bg-gradient-to-br from-[#D2C1B6] to-[#c4b1a6] p-2 rounded-lg">
-            <Heart className="w-5 h-5 text-white" />
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+          className="bg-gradient-to-r from-[#234C6A] to-[#1a3d57] shadow-2xl backdrop-blur-xl p-4 border-2 border-white/20 rounded-xl"
+        >
+          <div className="flex items-center gap-3">
+            <div className="bg-gradient-to-br from-[#D2C1B6] to-[#c4b1a6] p-2 rounded-lg">
+              <Heart className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="font-bold text-white">Event added to favorites!</p>
+              <p className="text-white/70 text-sm">
+                You can find it in your liked events
+              </p>
+            </div>
           </div>
-          <span className="font-bold text-white">Event added to favorites!</span>
-        </div>
+        </motion.div>
       ),
-      toastStyle
+      { duration: 3000, position: "top-right" }
     );
   };
 
   const handleShareEvent = () => {
-    toast.custom((t) => (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 20 }}
-        className="bg-gradient-to-r from-[#234C6A] to-[#1a3d57] shadow-2xl backdrop-blur-xl p-6 border-2 border-white/20 rounded-xl"
-      >
-        <div className="flex items-center gap-3 mb-4">
-          <div className="bg-gradient-to-br from-[#96A78D] to-[#889c7e] p-2 rounded-lg">
-            <Share2 className="w-5 h-5 text-white" />
+    if (!id) return;
+
+    showToast(
+      "custom",
+      `share-event-${id}`,
+      (t) => (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+          className="bg-gradient-to-r from-[#234C6A] to-[#1a3d57] shadow-2xl backdrop-blur-xl p-6 border-2 border-white/20 rounded-xl"
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <div className="bg-gradient-to-br from-[#96A78D] to-[#889c7e] p-2 rounded-lg">
+              <Share2 className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="font-bold text-white text-lg">Share Event</p>
+              <p className="text-white/70 text-sm">Copy link to share</p>
+            </div>
           </div>
-          <div>
-            <p className="font-bold text-white text-lg">Share Event</p>
-            <p className="text-white/70 text-sm">Copy link to share</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              readOnly
+              value={`${window.location.origin}/events/${id}`}
+              className="flex-1 bg-white/10 backdrop-blur-sm px-4 py-2 border border-white/20 rounded-lg text-white text-sm"
+            />
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(
+                  `${window.location.origin}/events/${id}`
+                );
+                showToast(
+                  "success",
+                  "copy-success",
+                  "Link copied to clipboard!"
+                );
+                toast.dismiss(t.id);
+              }}
+              className="bg-gradient-to-r from-[#96A78D] hover:from-[#889c7e] to-[#889c7e] hover:to-[#96A78D] px-4 py-2 rounded-lg font-bold text-white text-sm transition-all"
+            >
+              Copy
+            </button>
           </div>
-        </div>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            readOnly
-            value={`${window.location.origin}/events/${id}`}
-            className="flex-1 bg-white/10 backdrop-blur-sm px-4 py-2 border border-white/20 rounded-lg text-white text-sm"
-          />
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(`${window.location.origin}/events/${id}`);
-              toast.success("Link copied to clipboard!", { ...toastStyle, icon: "📋" });
-              toast.dismiss(t.id);
-            }}
-            className="bg-gradient-to-r from-[#96A78D] hover:from-[#889c7e] to-[#889c7e] hover:to-[#96A78D] px-4 py-2 rounded-lg font-bold text-white text-sm transition-all"
-          >
-            Copy
-          </button>
-        </div>
-      </motion.div>
-    ));
+        </motion.div>
+      ),
+      { duration: 4000, position: "top-right" }
+    );
   };
 
   const handleRemindMe = () => {
-    toast.promise(
+    showToast(
+      "promise",
+      "reminder-set",
       new Promise((resolve) => setTimeout(resolve, 1000)),
       {
-        loading: (
-          <div className="flex items-center gap-3">
-            <Loader2 className="w-5 h-5 text-[#96A78D] animate-spin" />
-            <span className="font-bold text-white">Setting reminder...</span>
-          </div>
-        ),
+        loading: "Setting reminder...",
         success: (
           <div className="flex items-center gap-3">
             <div className="bg-gradient-to-br from-[#96A78D] to-[#889c7e] p-2 rounded-lg">
@@ -442,31 +1207,21 @@ export default function EventDetailsPage() {
             </div>
             <div>
               <p className="font-bold text-white">Reminder set!</p>
-              <p className="text-white/70 text-sm">You'll be notified 1 hour before</p>
+              <p className="text-white/70 text-sm">
+                You'll be notified 1 hour before
+              </p>
             </div>
           </div>
         ),
-        error: (
-          <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-br from-[#D2C1B6] to-[#c4b1a6] p-2 rounded-lg">
-              <XCircle className="w-5 h-5 text-white" />
-            </div>
-            <span className="font-bold text-white">Failed to set reminder</span>
-          </div>
-        ),
+        error: "Failed to set reminder",
       },
-      toastStyle
+      { duration: 3000, position: "top-right" }
     );
   };
 
   const isUserParticipant = () => {
-    if (!user || !event) return false;
+    if (!user || !event || !event.participants) return false;
     return event.participants.some((p) => p._id === user.id);
-  };
-
-  const isUserHost = () => {
-    if (!user || !event) return false;
-    return event.host._id === user.id;
   };
 
   if (loading) {
@@ -477,8 +1232,12 @@ export default function EventDetailsPage() {
             <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-white/5 blur-xl rounded-full"></div>
             <Loader2 className="relative w-16 h-16 text-white animate-spin" />
           </div>
-          <p className="mb-2 font-bold text-white text-2xl">Loading Event Details</p>
-          <p className="text-white/60">We're preparing the perfect experience for you</p>
+          <p className="mb-2 font-bold text-white text-2xl">
+            Loading Event Details
+          </p>
+          <p className="text-white/60">
+            We're preparing the perfect experience for you
+          </p>
         </div>
       </div>
     );
@@ -524,18 +1283,30 @@ export default function EventDetailsPage() {
     <>
       <Toaster
         toastOptions={{
-          style: toastStyle.style,
-          duration: toastStyle.duration,
-          position: toastStyle.position,
-        }}
-        containerStyle={{
-          top: 20,
-          right: 20,
+          style: {
+            background: "transparent",
+            padding: 0,
+            margin: 0,
+          },
+          duration: 4000,
+          position: "top-right",
         }}
       />
 
       <div className="bg-gradient-to-b from-[#234C6A] via-[#1a3d57] to-[#152a3d] min-h-screen">
         <div className="mx-auto px-4 sm:px-6 lg:px-8 py-8 max-w-7xl">
+          {user &&
+            !canEditDeleteEvent() &&
+            (isUserHostOfThisEvent || isUserAdmin) && (
+              <div className="bg-yellow-500/20 mb-4 p-3 border border-yellow-500/30 rounded-lg">
+                <p className="text-yellow-300 text-sm">
+                  Note: You have special permissions (
+                  {isUserAdmin ? "Administrator" : "Host"}) but cannot
+                  edit/delete this event.
+                </p>
+              </div>
+            )}
+
           <EventDetailsHeader
             event={event}
             onLike={handleLikeEvent}
@@ -545,13 +1316,13 @@ export default function EventDetailsPage() {
 
           <div className="gap-8 grid grid-cols-1 lg:grid-cols-3">
             <EventContent event={event} />
-            
+
             <div className="space-y-6">
               <EventSidebar
                 event={event}
                 user={user}
                 canJoinInfo={canJoinInfo}
-                isUserHost={isUserHost()}
+                isUserHost={isUserHostOfThisEvent}
                 isUserParticipant={isUserParticipant()}
                 onJoinEvent={handleJoinEvent}
                 onLeaveEvent={handleLeaveEvent}
@@ -565,10 +1336,14 @@ export default function EventDetailsPage() {
                 submittingReview={submittingReview}
                 onSubmitReview={handleSubmitReview}
                 onDeleteReview={handleDeleteReview}
+                isUserAdmin={isUserAdmin}
+                canEditDeleteEvent={canEditDeleteEvent()}
+                onEditEvent={handleEditEvent}
+                onDeleteEvent={handleDeleteEvent}
               />
 
               <ParticipantsSection
-                participants={event.participants}
+                participants={event.participants || []}
                 currentParticipants={event.currentParticipants}
               />
 
@@ -581,12 +1356,14 @@ export default function EventDetailsPage() {
                 totalReviews={reviews.length}
                 user={user}
                 onEditReview={(review) => {
-                  setUserReview({
-                    rating: review.rating,
-                    comment: review.comment,
-                    _id: review._id,
-                  });
-                  setShowReviewForm(true);
+                  if (user && user.role === "user") {
+                    setUserReview({
+                      rating: review.rating,
+                      comment: review.comment,
+                      _id: review._id,
+                    });
+                    setShowReviewForm(true);
+                  }
                 }}
               />
             </div>

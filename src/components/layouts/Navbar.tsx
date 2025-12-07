@@ -15,16 +15,12 @@ import {
   FiSettings,
   FiDollarSign,
   FiHeart,
-  FiMessageSquare,
   FiHelpCircle,
   FiCreditCard,
   FiBell,
-  FiPackage,
   FiTrendingUp,
   FiShield,
   FiFileText,
-  FiGlobe,
-  FiServer,
 } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 
@@ -36,7 +32,6 @@ interface User {
   location?: string;
 }
 
-// Custom event names for auth state changes
 const AUTH_EVENTS = {
   LOGIN: "auth-login",
   LOGOUT: "auth-logout",
@@ -50,7 +45,6 @@ export default function Navbar() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  // Function to get user from localStorage
   const getUserFromLocalStorage = (): User | null => {
     try {
       const storedUser = localStorage.getItem("user");
@@ -66,11 +60,9 @@ export default function Navbar() {
     return null;
   };
 
-  // Function to update user state
   const updateUserState = () => {
     const localStorageUser = getUserFromLocalStorage();
 
-    // Prioritize localStorage user if it exists and has role
     if (localStorageUser) {
       setCurrentUser(localStorageUser);
     } else if (contextUser) {
@@ -80,19 +72,15 @@ export default function Navbar() {
     }
   };
 
-  // Initialize and setup listeners
   useEffect(() => {
-    // Initial update
     updateUserState();
 
-    // Listen for storage changes (from other tabs/windows)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "user" || e.key === "token") {
         updateUserState();
       }
     };
 
-    // Listen for custom auth events
     const handleAuthEvent = (e: Event) => {
       updateUserState();
     };
@@ -102,8 +90,6 @@ export default function Navbar() {
     window.addEventListener(AUTH_EVENTS.LOGOUT, handleAuthEvent);
     window.addEventListener(AUTH_EVENTS.UPDATE, handleAuthEvent);
 
-    // Setup an interval to check for auth state changes
-    // This helps when localStorage is updated in the same tab
     const checkInterval = setInterval(() => {
       updateUserState();
     }, 500);
@@ -117,10 +103,8 @@ export default function Navbar() {
     };
   }, [contextUser]);
 
-  // Trigger custom event when context user changes
   useEffect(() => {
     if (contextUser) {
-      // Dispatch update event
       window.dispatchEvent(new Event(AUTH_EVENTS.UPDATE));
     }
   }, [contextUser]);
@@ -131,40 +115,14 @@ export default function Navbar() {
     setIsUserMenuOpen(false);
     setCurrentUser(null);
 
-    // Clear additional auth data if exists
     localStorage.removeItem("user");
     localStorage.removeItem("token");
     localStorage.removeItem("auth_token");
     localStorage.removeItem("refresh_token");
 
-    // Dispatch logout event
     window.dispatchEvent(new Event(AUTH_EVENTS.LOGOUT));
 
     router.push("/");
-  };
-
-  // Function to handle DLT setting logout (specific for host)
-  const handleDLTLogout = () => {
-    // Clear DLT specific data
-    localStorage.removeItem("dlt_token");
-    localStorage.removeItem("dlt_settings");
-    localStorage.removeItem("host_dlt_config");
-    
-    // You might want to make an API call to invalidate DLT session
-    // api.post('/host/dlt/logout');
-    
-    alert("DLT settings logged out successfully");
-    setIsUserMenuOpen(false);
-  };
-
-  // Function to handle host setting logout
-  const handleHostSettingLogout = () => {
-    // Clear host specific settings
-    localStorage.removeItem("host_preferences");
-    localStorage.removeItem("host_config");
-    
-    alert("Host settings logged out successfully");
-    setIsUserMenuOpen(false);
   };
 
   const getUserRoleBadge = (role: string) => {
@@ -190,7 +148,6 @@ export default function Navbar() {
     }
   };
 
-  // Function to get dynamic profile URL based on user ID
   const getProfileUrl = (): string => {
     if (!currentUser || !currentUser.id) {
       return "/auth/login";
@@ -268,69 +225,11 @@ export default function Navbar() {
         label: "Host Settings",
         icon: <FiSettings className="w-4 h-4" />,
         link: "/host/settings",
-        children: [
-          {
-            label: "General Settings",
-            link: "/host/settings/general",
-          },
-          {
-            label: "DLT Configuration",
-            link: "/host/settings/dlt",
-            icon: <FiGlobe className="w-3 h-3" />,
-          },
-          {
-            label: "Payment Settings",
-            link: "/host/settings/payments",
-          },
-          {
-            label: "API Settings",
-            link: "/host/settings/api",
-            icon: <FiServer className="w-3 h-3" />,
-          },
-          {
-            label: "Logout DLT Settings",
-            onClick: handleDLTLogout,
-            icon: <FiLogOut className="w-3 h-3" />,
-            danger: true,
-          },
-          {
-            label: "Logout Host Settings",
-            onClick: handleHostSettingLogout,
-            icon: <FiLogOut className="w-3 h-3" />,
-            danger: true,
-          },
-        ]
       },
       {
         label: "Host Analytics",
         icon: <FiTrendingUp className="w-4 h-4" />,
         link: "/host/analytics",
-      },
-      // Add DLT specific menu item
-      {
-        label: "DLT Management",
-        icon: <FiGlobe className="w-4 h-4" />,
-        link: "/host/dlt",
-        children: [
-          {
-            label: "DLT Dashboard",
-            link: "/host/dlt/dashboard",
-          },
-          {
-            label: "DLT Configuration",
-            link: "/host/dlt/configuration",
-          },
-          {
-            label: "DLT Transactions",
-            link: "/host/dlt/transactions",
-          },
-          {
-            label: "DLT Logout",
-            onClick: handleDLTLogout,
-            icon: <FiLogOut className="w-3 h-3" />,
-            danger: true,
-          },
-        ]
       },
     ];
 
@@ -392,66 +291,9 @@ export default function Navbar() {
     return menuItems;
   };
 
-  // Helper function to render menu items with possible children
   const renderMenuItem = (item: any, index: number, isMobile: boolean = false) => {
     if (item.type === "divider") {
       return <div key={index} className="my-1 border-white/10 border-t"></div>;
-    }
-
-    if (item.children) {
-      // For items with children (like Host Settings with DLT logout)
-      return (
-        <div key={index} className="group relative">
-          <button
-            className={`flex items-center justify-between w-full px-4 py-2.5 text-sm text-left transition-all duration-200 ${
-              isMobile ? 'py-3' : ''
-            } hover:bg-white/10 text-white`}
-          >
-            <div className="flex items-center space-x-3">
-              {item.icon}
-              <span>{item.label}</span>
-            </div>
-            <FiChevronDown className="w-4 h-4 group-hover:rotate-180 transition-transform duration-200" />
-          </button>
-          
-          {/* Dropdown for children */}
-          <div className="hidden group-hover:block top-0 left-full absolute bg-gradient-to-b from-[#234C6A]/95 to-[#96A78D]/95 shadow-xl backdrop-blur-md ml-1 py-2 border border-white/20 rounded-lg w-56">
-            {item.children.map((child: any, childIndex: number) => (
-              child.onClick ? (
-                <button
-                  key={childIndex}
-                  onClick={() => {
-                    child.onClick?.();
-                    setIsUserMenuOpen(false);
-                    if (isMobile) setIsOpen(false);
-                  }}
-                  className={`flex items-center space-x-3 w-full px-4 py-2.5 text-sm text-left transition-all duration-200 ${
-                    child.danger
-                      ? "hover:bg-gradient-to-r from-red-500/20 hover:from-red-500/30 to-rose-500/10 hover:to-rose-500/20 text-red-200"
-                      : "hover:bg-white/10 text-white"
-                  }`}
-                >
-                  {child.icon && <span className="mr-2">{child.icon}</span>}
-                  <span>{child.label}</span>
-                </button>
-              ) : (
-                <Link
-                  key={childIndex}
-                  href={child.link || "#"}
-                  className="flex items-center space-x-3 hover:bg-white/10 px-4 py-2.5 text-white text-sm transition-all duration-200"
-                  onClick={() => {
-                    setIsUserMenuOpen(false);
-                    if (isMobile) setIsOpen(false);
-                  }}
-                >
-                  {child.icon && <span className="mr-2">{child.icon}</span>}
-                  <span>{child.label}</span>
-                </Link>
-              )
-            ))}
-          </div>
-        </div>
-      );
     }
 
     if (item.onClick) {
@@ -492,11 +334,8 @@ export default function Navbar() {
   };
 
   const menuItems = getMenuItems();
-
-  // Use currentUser for display
   const displayUser = currentUser;
 
-  // Function to get edit profile URL
   const getEditProfileUrl = (): string => {
     if (!currentUser || !currentUser.id) {
       return "/auth/login";
@@ -528,7 +367,6 @@ export default function Navbar() {
 
             {displayUser ? (
               <>
-                {/* User specific links */}
                 {displayUser.role === "user" && (
                   <>
                     <Link
@@ -548,11 +386,10 @@ export default function Navbar() {
                   </>
                 )}
 
-                {/* Host specific links - Added DLT Management */}
                 {displayUser.role === "host" && (
                   <>
                     <Link
-                      href="/host/events"
+                      href="/host-events"
                       className="flex items-center space-x-2 text-white/90 hover:text-white hover:scale-105 transition-all duration-200"
                     >
                       <FiCalendar />
@@ -565,14 +402,6 @@ export default function Navbar() {
                       <FiPlusCircle />
                       <span>Create Event</span>
                     </Link>
-                    {/* DLT Management Link */}
-                    <Link
-                      href="/host/dlt"
-                      className="flex items-center space-x-2 bg-gradient-to-r from-green-500/20 hover:from-green-500/30 to-emerald-500/10 hover:to-emerald-500/20 px-4 py-2 rounded-lg text-white hover:scale-105 transition-all duration-200"
-                    >
-                      <FiGlobe />
-                      <span>DLT Management</span>
-                    </Link>
                     <Link
                       href={getProfileUrl()}
                       className="flex items-center space-x-2 text-white/90 hover:text-white hover:scale-105 transition-all duration-200"
@@ -583,7 +412,6 @@ export default function Navbar() {
                   </>
                 )}
 
-                {/* Admin specific links */}
                 {displayUser.role === "admin" && (
                   <>
                     <Link
@@ -617,7 +445,6 @@ export default function Navbar() {
                   </>
                 )}
 
-                {/* User profile section */}
                 <div className="flex items-center space-x-2">
                   <div className="relative">
                     <button
@@ -680,7 +507,6 @@ export default function Navbar() {
                 </div>
               </>
             ) : (
-              // Not logged in state
               <>
                 <Link
                   href="/become-host"
@@ -705,7 +531,6 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Mobile menu button */}
           <button className="md:hidden p-2" onClick={() => setIsOpen(!isOpen)}>
             <div className="flex flex-col justify-between w-6 h-6">
               <span
@@ -727,7 +552,6 @@ export default function Navbar() {
           </button>
         </div>
 
-        {/* Mobile menu */}
         {isOpen && (
           <div className="md:hidden bg-gradient-to-b from-[#234C6A]/90 slide-in-from-top-5 via-[#D2C1B6]/90 to-[#96A78D]/90 backdrop-blur-md py-4 border-white/20 border-t animate-in duration-300">
             <div className="flex flex-col space-y-2">
@@ -772,7 +596,6 @@ export default function Navbar() {
                 </div>
               )}
 
-              {/* Common links */}
               <Link
                 href="/events"
                 className="flex items-center space-x-3 bg-white/10 hover:bg-white/20 px-4 py-3 rounded-lg text-white transition-all duration-200"
@@ -784,7 +607,6 @@ export default function Navbar() {
 
               {displayUser ? (
                 <>
-                  {/* Role-specific mobile links */}
                   {displayUser.role === "user" && (
                     <Link
                       href="/my-events"
@@ -813,15 +635,6 @@ export default function Navbar() {
                       >
                         <FiPlusCircle />
                         <span>Create Event</span>
-                      </Link>
-                      {/* DLT Management Mobile Link */}
-                      <Link
-                        href="/host/dlt"
-                        className="flex items-center space-x-3 bg-gradient-to-r from-green-500/20 hover:from-green-500/30 to-emerald-500/10 hover:to-emerald-500/20 px-4 py-3 rounded-lg text-white transition-all duration-200"
-                        onClick={() => setIsOpen(false)}
-                      >
-                        <FiGlobe />
-                        <span>DLT Management</span>
                       </Link>
                     </>
                   )}
@@ -855,11 +668,9 @@ export default function Navbar() {
                     </>
                   )}
 
-                  {/* Mobile profile menu items */}
                   {menuItems.map((item, index) => renderMenuItem(item, index, true))}
                 </>
               ) : (
-                // Not logged in mobile links
                 <>
                   <Link
                     href="/become-host"

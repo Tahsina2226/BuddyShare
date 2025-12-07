@@ -2,15 +2,23 @@
 
 import Link from 'next/link';
 import { Event } from '@/types/event';
-import { Calendar, Users, MapPin, DollarSign, Clock, ChevronRight, Star, User } from 'lucide-react';
+import { Calendar, Users, MapPin, DollarSign, Clock, ChevronRight, Star, User, CheckCircle, CalendarDays, Trophy } from 'lucide-react';
 
 interface EventCardProps {
   event: Event;
   showHost?: boolean;
   variant?: 'default' | 'compact';
+  showParticipantStatus?: boolean; // নতুন prop
+  showEventStats?: boolean; // নতুন prop - My Events পেজের জন্য
 }
 
-export default function EventCard({ event, showHost = true, variant = 'default' }: EventCardProps) {
+export default function EventCard({ 
+  event, 
+  showHost = true, 
+  variant = 'default',
+  showParticipantStatus = false,
+  showEventStats = false
+}: EventCardProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'open': return 'bg-gradient-to-r from-[#96A78D] to-[#D2C1B6]';
@@ -44,6 +52,40 @@ export default function EventCard({ event, showHost = true, variant = 'default' 
     return colors[category] || 'bg-gradient-to-br from-[#234C6A] to-[#96A78D]';
   };
 
+  const isPastEvent = () => {
+    const eventDate = new Date(event.date);
+    const now = new Date();
+    return eventDate < now;
+  };
+
+  const getEventStatusBadge = () => {
+    if (isPastEvent()) {
+      return {
+        text: 'Attended',
+        color: 'bg-gradient-to-r from-[#96A78D] to-[#234C6A]',
+        icon: <CheckCircle className="w-3 h-3" />
+      };
+    }
+    
+    const eventDate = new Date(event.date);
+    const now = new Date();
+    const diffDays = Math.floor((eventDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays <= 7) {
+      return {
+        text: 'Upcoming',
+        color: 'bg-gradient-to-r from-[#D2C1B6] to-[#234C6A]',
+        icon: <CalendarDays className="w-3 h-3" />
+      };
+    }
+    
+    return {
+      text: 'Registered',
+      color: 'bg-gradient-to-r from-[#234C6A] to-[#96A78D]',
+      icon: <CheckCircle className="w-3 h-3" />
+    };
+  };
+
   if (variant === 'compact') {
     return (
       <div className="group bg-gradient-to-br from-white/5 hover:from-white/10 to-white/10 hover:to-white/15 hover:shadow-lg hover:shadow-white/5 backdrop-blur-sm p-4 border border-white/20 rounded-xl hover:scale-[1.02] transition-all duration-300">
@@ -68,8 +110,16 @@ export default function EventCard({ event, showHost = true, variant = 'default' 
                   {event.location}
                 </p>
               </div>
-              <div className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(event.status)} text-white`}>
-                {event.status.toUpperCase()}
+              <div className="flex flex-col items-end gap-2">
+                <div className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(event.status)} text-white`}>
+                  {event.status.toUpperCase()}
+                </div>
+                {showParticipantStatus && (
+                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium ${getEventStatusBadge().color} text-white`}>
+                    {getEventStatusBadge().icon}
+                    {getEventStatusBadge().text}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -136,10 +186,20 @@ export default function EventCard({ event, showHost = true, variant = 'default' 
             </div>
           </div>
           
-          <div className="bg-black/40 shadow-lg backdrop-blur-sm p-3 rounded-xl text-center">
-            <div className="font-bold text-white text-xl">{formatDate(event.date).split(',')[1]?.trim().split(' ')[1] || ''}</div>
-            <div className="text-white/70 text-xs uppercase tracking-wider">{formatDate(event.date).split(',')[1]?.trim().split(' ')[0] || ''}</div>
-            <div className="mt-1 text-white/60 text-xs">{formatDate(event.date).split(',')[0]}</div>
+          <div className="flex flex-col items-end gap-2">
+            <div className="bg-black/40 shadow-lg backdrop-blur-sm p-3 rounded-xl text-center">
+              <div className="font-bold text-white text-xl">{formatDate(event.date).split(',')[1]?.trim().split(' ')[1] || ''}</div>
+              <div className="text-white/70 text-xs uppercase tracking-wider">{formatDate(event.date).split(',')[1]?.trim().split(' ')[0] || ''}</div>
+              <div className="mt-1 text-white/60 text-xs">{formatDate(event.date).split(',')[0]}</div>
+            </div>
+            
+            {/* Participant Status Badge */}
+            {showParticipantStatus && (
+              <div className={`flex items-center gap-2 px-3 py-2 rounded-full text-xs font-bold ${getEventStatusBadge().color} text-white shadow-lg`}>
+                {getEventStatusBadge().icon}
+                {getEventStatusBadge().text}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -185,6 +245,34 @@ export default function EventCard({ event, showHost = true, variant = 'default' 
                     <span className="text-white/60">{event.host.totalEvents || 0} events</span>
                   </p>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Event Stats for My Events Page */}
+          {showEventStats && (
+            <div className="bg-gradient-to-r from-white/10 to-transparent mt-4 p-4 border border-white/10 rounded-xl">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="bg-white/10 backdrop-blur-sm p-2 rounded-lg">
+                    <Trophy className="w-4 h-4 text-[#D2C1B6]" />
+                  </div>
+                  <div>
+                    <p className="text-white/60 text-xs">Your Participation</p>
+                    <p className="font-medium text-white text-sm">
+                      Joined {new Date(event.participationDate || event.date).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric'
+                      })}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-white/60 text-xs">Payment Status</p>
+                  <p className={`font-bold text-sm ${event.joiningFee === 0 ? 'text-[#96A78D]' : 'text-[#D2C1B6]'}`}>
+                    {event.joiningFee === 0 ? 'FREE' : `Paid $${event.joiningFee}`}
+                  </p>
+                </div>
               </div>
             </div>
           )}

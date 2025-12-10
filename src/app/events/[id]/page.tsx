@@ -1,4 +1,4 @@
-"use client";
+'use client'
 
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -26,10 +26,12 @@ import {
   CheckCircle,
   Trash2,
   Edit,
+  CreditCard,
 } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import toast, { Toaster } from "react-hot-toast";
+import API from '@/utils/api';
 import { EventDetailsHeader } from "@/components/EventDetailsHeader";
 import { EventContent } from "@/components/EventContent";
 import { EventSidebar } from "@/components/EventSidebar";
@@ -41,7 +43,6 @@ const useToast = () => {
   const toastShown = useRef<Record<string, boolean>>({});
 
   const showToast = (type: string, id: string, ...args: any[]) => {
-    // Clear previous toast with same ID
     if (toastShown.current[id]) {
       toast.dismiss(toastShown.current[id] as any);
     }
@@ -362,7 +363,6 @@ export default function EventDetailsPage() {
   const router = useRouter();
   const { user } = useAuth();
 
-  // useParams থেকে id স্ট্রিং হিসেবে নিন
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
 
   const [event, setEvent] = useState<EventDetails | null>(null);
@@ -370,6 +370,7 @@ export default function EventDetailsPage() {
   const [error, setError] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [processingPayment, setProcessingPayment] = useState(false);
   const [canJoinInfo, setCanJoinInfo] = useState<{
     canJoin: boolean;
     reasons: string[];
@@ -407,16 +408,15 @@ export default function EventDetailsPage() {
     if (!id) return;
 
     try {
-      const response = await fetch(`http://localhost:5000/api/events/${id}`);
-      if (!response.ok) throw new Error("Event not found");
-      const data = await response.json();
-      if (data.success) {
-        setEvent({ ...data.data.event });
-        checkIfUserIsHost(data.data.event);
+      const response = await API.get(`/events/${id}`);
+      if (response.data.success) {
+        setEvent({ ...response.data.data.event });
+        checkIfUserIsHost(response.data.data.event);
+      } else {
+        throw new Error(response.data.message || "Event not found");
       }
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to load event";
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.message || "Failed to load event";
       setError(errorMessage);
       showToast("error", "load-error", errorMessage);
     } finally {
@@ -430,7 +430,6 @@ export default function EventDetailsPage() {
       setIsUserHostOfThisEvent(false);
       return;
     }
-
     setIsUserAdmin(user.role === "admin");
   };
 
@@ -439,7 +438,6 @@ export default function EventDetailsPage() {
       setIsUserHostOfThisEvent(false);
       return;
     }
-
     setIsUserHostOfThisEvent(eventData.host._id === user.id);
   };
 
@@ -448,17 +446,12 @@ export default function EventDetailsPage() {
 
     try {
       setLoadingReviews(true);
-      const response = await fetch(
-        `http://localhost:5000/api/events/${id}/reviews`
-      );
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          const userReviews = (data.data.reviews || []).filter(
-            (review: Review) => review.user && review.user.role === "user"
-          );
-          setReviews(userReviews);
-        }
+      const response = await API.get(`/events/${id}/reviews`);
+      if (response.data.success) {
+        const userReviews = (response.data.data.reviews || []).filter(
+          (review: Review) => review.user && review.user.role === "user"
+        );
+        setReviews(userReviews);
       }
     } catch (err) {
       console.error("Error fetching reviews:", err);
@@ -470,23 +463,15 @@ export default function EventDetailsPage() {
   const checkUserReview = async () => {
     if (!user || user.role !== "user" || !id) return;
     try {
-      const response = await fetch(
-        `http://localhost:5000/api/events/${id}/reviews/check`,
-        {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        }
-      );
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.data.review) {
-          setUserReview({
-            rating: data.data.review.rating,
-            comment: data.data.review.comment,
-            _id: data.data.review._id,
-          });
-          setUserHasReview(true);
-        } else setUserHasReview(false);
-      }
+      const response = await API.get(`/events/${id}/reviews/check`);
+      if (response.data.success && response.data.data.review) {
+        setUserReview({
+          rating: response.data.data.review.rating,
+          comment: response.data.data.review.comment,
+          _id: response.data.data.review._id,
+        });
+        setUserHasReview(true);
+      } else setUserHasReview(false);
     } catch (err) {
       console.error("Error checking user review:", err);
     }
@@ -504,15 +489,9 @@ export default function EventDetailsPage() {
     }
 
     try {
-      const response = await fetch(
-        `http://localhost:5000/api/events/${id}/can-join`,
-        {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        }
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setCanJoinInfo({ ...data.data });
+      const response = await API.get(`/events/${id}/can-join`);
+      if (response.data.success) {
+        setCanJoinInfo({ ...response.data.data });
       } else setCanJoinInfo(null);
     } catch (err) {
       console.error("Error checking join status:", err);
@@ -533,7 +512,6 @@ export default function EventDetailsPage() {
   };
 
   const handleDeleteEvent = async () => {
-    console.log("Delete event clicked");
     if (!canEditDeleteEvent() || !event) {
       showToast(
         "error",
@@ -746,16 +724,9 @@ export default function EventDetailsPage() {
         { duration: Infinity, position: "top-right" }
       );
 
-      const response = await fetch(`http://localhost:5000/api/events/${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
+      const response = await API.delete(`/events/${id}`);
 
-      const data = await response.json();
-
-      if (data.success) {
+      if (response.data.success) {
         toast.dismiss(loadingToast);
         showToast(
           "success",
@@ -764,13 +735,13 @@ export default function EventDetailsPage() {
         );
         router.push("/events");
       } else {
-        throw new Error(data.message || "Failed to delete event");
+        throw new Error(response.data.message || "Failed to delete event");
       }
-    } catch (err) {
+    } catch (err: any) {
       showToast(
         "error",
         "delete-error",
-        err instanceof Error ? err.message : "Failed to delete event"
+        err.response?.data?.message || err.message || "Failed to delete event"
       );
     }
   };
@@ -828,20 +799,16 @@ export default function EventDetailsPage() {
       return;
     }
 
+    // Paid event হলে payment page-এ redirect করুন
+    if (event?.joiningFee > 0) {
+      router.push(`/payment/${id}`);
+      return;
+    }
+
     try {
       setJoining(true);
-      const response = await fetch(
-        `http://localhost:5000/api/events/${id}/join`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
-      );
-      const data = await response.json();
-      if (data.success) {
+      const response = await API.post(`/events/${id}/join`);
+      if (response.data.success) {
         if (event && user) {
           const updatedParticipants = [
             ...(event.participants || []),
@@ -862,13 +829,13 @@ export default function EventDetailsPage() {
         await fetchEventDetails();
         await checkCanJoin();
         showToast("success", "join-success", "Successfully joined the event!");
-      } else throw new Error(data.message || "Failed to join event");
-    } catch (err) {
+      } else throw new Error(response.data.message || "Failed to join event");
+    } catch (err: any) {
       console.error("Error joining event:", err);
       showToast(
         "error",
         "join-error",
-        err instanceof Error ? err.message : "Failed to join event"
+        err.response?.data?.message || err.message || "Failed to join event"
       );
     } finally {
       setJoining(false);
@@ -936,15 +903,8 @@ export default function EventDetailsPage() {
 
     try {
       setLeaving(true);
-      const response = await fetch(
-        `http://localhost:5000/api/events/${id}/leave`,
-        {
-          method: "POST",
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        }
-      );
-      const data = await response.json();
-      if (data.success) {
+      const response = await API.post(`/events/${id}/leave`);
+      if (response.data.success) {
         if (event && user) {
           const updatedParticipants = (event.participants || []).filter(
             (p) => p._id !== user.id
@@ -958,13 +918,13 @@ export default function EventDetailsPage() {
         await fetchEventDetails();
         await checkCanJoin();
         showToast("success", "leave-success", "Successfully left the event!");
-      } else throw new Error(data.message || "Failed to leave event");
-    } catch (err) {
+      } else throw new Error(response.data.message || "Failed to leave event");
+    } catch (err: any) {
       console.error("Error leaving event:", err);
       showToast(
         "error",
         "leave-error",
-        err instanceof Error ? err.message : "Failed to leave event"
+        err.response?.data?.message || err.message || "Failed to leave event"
       );
     } finally {
       setLeaving(false);
@@ -988,23 +948,17 @@ export default function EventDetailsPage() {
     try {
       setSubmittingReview(true);
       const endpoint = userHasReview
-        ? `http://localhost:5000/api/events/${id}/reviews/${userReview._id}`
-        : `http://localhost:5000/api/events/${id}/reviews`;
+        ? `/events/${id}/reviews/${userReview._id}`
+        : `/events/${id}/reviews`;
       const method = userHasReview ? "PUT" : "POST";
-      const response = await fetch(endpoint, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: JSON.stringify({
-          rating: userReview.rating,
-          comment: userReview.comment,
-          hostId: event?.host._id,
-        }),
+      
+      const response = await API[method.toLowerCase()](endpoint, {
+        rating: userReview.rating,
+        comment: userReview.comment,
+        hostId: event?.host._id,
       });
-      const data = await response.json();
-      if (data.success) {
+      
+      if (response.data.success) {
         showToast(
           "success",
           "review-submit-success",
@@ -1016,12 +970,12 @@ export default function EventDetailsPage() {
         await fetchEventDetails();
         await checkUserReview();
         setShowReviewForm(false);
-      } else throw new Error(data.message || "Failed to submit review");
-    } catch (err) {
+      } else throw new Error(response.data.message || "Failed to submit review");
+    } catch (err: any) {
       showToast(
         "error",
         "review-submit-error",
-        err instanceof Error ? err.message : "Failed to submit review"
+        err.response?.data?.message || err.message || "Failed to submit review"
       );
     } finally {
       setSubmittingReview(false);
@@ -1088,15 +1042,8 @@ export default function EventDetailsPage() {
   const performDeleteReview = async () => {
     if (!userReview._id || !id) return;
     try {
-      const response = await fetch(
-        `http://localhost:5000/api/events/${id}/reviews/${userReview._id}`,
-        {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        }
-      );
-      const data = await response.json();
-      if (data.success) {
+      const response = await API.delete(`/events/${id}/reviews/${userReview._id}`);
+      if (response.data.success) {
         showToast(
           "success",
           "review-delete-success",
@@ -1108,8 +1055,12 @@ export default function EventDetailsPage() {
         setUserReview({ rating: 0, comment: "" });
         setShowReviewForm(false);
       }
-    } catch (err) {
-      showToast("error", "review-delete-error", "Failed to delete review");
+    } catch (err: any) {
+      showToast(
+        "error",
+        "review-delete-error",
+        err.response?.data?.message || "Failed to delete review"
+      );
     }
   };
 
@@ -1224,6 +1175,58 @@ export default function EventDetailsPage() {
     return event.participants.some((p) => p._id === user.id);
   };
 
+  // Payment এর জন্য নতুন function
+  const handlePaymentClick = () => {
+    if (!user) {
+      showToast(
+        "custom",
+        "login-required-payment",
+        (t) => (
+          <motion.div
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 50 }}
+            className="bg-gradient-to-r from-[#234C6A] to-[#1a3d57] shadow-2xl backdrop-blur-xl p-4 border-2 border-white/20 rounded-xl"
+          >
+            <div className="flex items-center gap-3">
+              <div className="bg-gradient-to-br from-[#96A78D] to-[#889c7e] p-2 rounded-lg">
+                <CreditCard className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="font-bold text-white">Login Required</p>
+                <p className="text-white/70 text-sm">
+                  Please login to proceed with payment
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  router.push(`/login?redirect=/events/${id}`);
+                  toast.dismiss(t.id);
+                }}
+                className="bg-gradient-to-r from-[#96A78D] hover:from-[#889c7e] to-[#889c7e] hover:to-[#96A78D] ml-4 px-4 py-2 rounded-lg font-bold text-white text-sm transition-all"
+              >
+                Login
+              </button>
+            </div>
+          </motion.div>
+        ),
+        { duration: 4000, position: "top-right" }
+      );
+      return;
+    }
+
+    if (user.role !== "user") {
+      showToast(
+        "error",
+        "payment-role-error",
+        "Only regular users can make payments. Hosts and admins cannot join paid events."
+      );
+      return;
+    }
+
+    router.push(`/payment/${id}`);
+  };
+
   if (loading) {
     return (
       <div className="bg-gradient-to-b from-[#234C6A] via-[#1a3d57] to-[#152a3d] min-h-screen">
@@ -1326,8 +1329,10 @@ export default function EventDetailsPage() {
                 isUserParticipant={isUserParticipant()}
                 onJoinEvent={handleJoinEvent}
                 onLeaveEvent={handleLeaveEvent}
+                onPaymentClick={handlePaymentClick}
                 joining={joining}
                 leaving={leaving}
+                processingPayment={processingPayment}
                 showReviewForm={showReviewForm}
                 setShowReviewForm={setShowReviewForm}
                 userReview={userReview}

@@ -18,6 +18,7 @@ import {
   Loader2 as Spinner,
   Trash2,
   ExternalLink,
+  CreditCard,
 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -31,8 +32,10 @@ interface EventSidebarProps {
   isUserParticipant: boolean;
   onJoinEvent: () => Promise<void>;
   onLeaveEvent: () => Promise<void>;
+  onPaymentClick: () => void;
   joining: boolean;
   leaving: boolean;
+  processingPayment: boolean;
   showReviewForm: boolean;
   setShowReviewForm: (show: boolean) => void;
   userReview: { rating: number; comment: string; _id?: string };
@@ -59,8 +62,10 @@ export function EventSidebar({
   isUserParticipant,
   onJoinEvent,
   onLeaveEvent,
+  onPaymentClick,
   joining,
   leaving,
+  processingPayment,
   showReviewForm,
   setShowReviewForm,
   userReview,
@@ -137,6 +142,8 @@ export function EventSidebar({
     await onDeleteReview();
   };
 
+  const isFreeEvent = event.joiningFee === 0;
+
   return (
     <div className="space-y-6">
       <motion.div
@@ -158,19 +165,21 @@ export function EventSidebar({
 
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-br from-[#96A78D] to-[#889c7e] shadow-lg p-3 rounded-xl">
+            <div className={`shadow-lg p-3 rounded-xl ${
+              isFreeEvent 
+                ? "bg-gradient-to-br from-[#96A78D] to-[#889c7e]" 
+                : "bg-gradient-to-br from-emerald-600 to-teal-700"
+            }`}>
               <DollarSign className="w-5 h-5 text-white" />
             </div>
             <div>
               <p className="text-white/60 text-sm">Joining Fee</p>
               <p
                 className={`font-bold text-3xl ${
-                  event.joiningFee === 0 ? "text-[#96A78D]" : "text-white"
+                  isFreeEvent ? "text-[#96A78D]" : "text-emerald-400"
                 }`}
               >
-                {event.joiningFee === 0
-                  ? "FREE"
-                  : `$${event.joiningFee.toFixed(2)}`}
+                {isFreeEvent ? "FREE" : `$${event.joiningFee.toFixed(2)}`}
               </p>
             </div>
           </div>
@@ -252,6 +261,24 @@ export function EventSidebar({
                       You are attending
                     </span>
                   </div>
+                  
+                  {!isFreeEvent && (
+                    <div className="bg-gradient-to-r from-emerald-500/20 to-teal-600/20 p-4 border border-emerald-400/30 rounded-lg">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center">
+                          <CreditCard className="mr-2 w-5 h-5 text-emerald-400" />
+                          <div>
+                            <p className="font-medium text-emerald-300">Payment Completed</p>
+                            <p className="text-emerald-400/80 text-sm">${event.joiningFee.toFixed(2)} paid</p>
+                          </div>
+                        </div>
+                        <span className="bg-emerald-500/20 px-2 py-1 rounded-full font-medium text-emerald-400 text-xs">
+                          Paid
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  
                   <button
                     onClick={onLeaveEvent}
                     disabled={leaving}
@@ -268,24 +295,53 @@ export function EventSidebar({
                   </button>
                 </>
               ) : (
-                <button
-                  onClick={onJoinEvent}
-                  disabled={joining || (canJoinInfo && !canJoinInfo.canJoin)}
-                  className={`w-full px-6 py-4 rounded-xl shadow-lg backdrop-blur-sm border-2 border-white/20 font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] ${
-                    event.joiningFee === 0
-                      ? "bg-gradient-to-r from-[#96A78D] to-[#889c7e] hover:from-[#889c7e] hover:to-[#96A78D] text-white"
-                      : "bg-gradient-to-r from-[#234C6A] to-[#D2C1B6] hover:from-[#D2C1B6] hover:to-[#234C6A] text-white"
-                  }`}
-                >
-                  {joining ? (
-                    <span className="flex justify-center items-center gap-2">
-                      <Spinner className="w-4 h-4 animate-spin" />
-                      Processing...
-                    </span>
+                <>
+                  {!isFreeEvent ? (
+                    // Paid Event - Show Payment Button
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center bg-white/5 p-3 rounded-lg">
+                        <div className="flex items-center">
+                          <CreditCard className="mr-2 w-5 h-5 text-emerald-400" />
+                          <span className="text-gray-300">Joining Fee:</span>
+                        </div>
+                        <span className="font-bold text-emerald-400 text-lg">
+                          ${event.joiningFee.toFixed(2)}
+                        </span>
+                      </div>
+                      
+                      <button
+                        onClick={onPaymentClick}
+                        disabled={processingPayment || !canJoinInfo?.canJoin}
+                        className="flex justify-center items-center bg-gradient-to-r from-emerald-600 hover:from-emerald-700 to-teal-700 hover:to-teal-800 disabled:opacity-50 shadow-lg hover:shadow-xl py-3 rounded-lg w-full font-bold text-white text-lg transition-all duration-300 disabled:cursor-not-allowed"
+                      >
+                        {processingPayment ? (
+                          <>
+                            <Spinner className="mr-2 w-5 h-5 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          `Pay $${event.joiningFee.toFixed(2)} to Join`
+                        )}
+                      </button>
+                    </div>
                   ) : (
-                    "Join Event"
+                    // Free Event - Show Join Button
+                    <button
+                      onClick={onJoinEvent}
+                      disabled={joining || !canJoinInfo?.canJoin}
+                      className="bg-gradient-to-r from-[#96A78D] hover:from-[#889c7e] to-[#889c7e] hover:to-[#96A78D] disabled:opacity-50 shadow-lg backdrop-blur-sm px-6 py-4 border-2 border-white/20 rounded-xl w-full font-bold text-white hover:scale-[1.02] transition-all disabled:cursor-not-allowed"
+                    >
+                      {joining ? (
+                        <span className="flex justify-center items-center gap-2">
+                          <Spinner className="w-4 h-4 animate-spin" />
+                          Joining...
+                        </span>
+                      ) : (
+                        'Join for Free'
+                      )}
+                    </button>
                   )}
-                </button>
+                </>
               )}
             </>
           ) : !user ? (
@@ -312,14 +368,15 @@ export function EventSidebar({
               </div>
               <p className="text-white/70 text-sm">
                 {user.role === "admin"
-                  ? "Administrator account access"
-                  : "Host account access"}
+                  ? "Administrators cannot join paid events"
+                  : "Hosts cannot join their own events"}
               </p>
             </div>
           ) : null}
         </div>
       </motion.div>
 
+      {/* Host Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -439,6 +496,7 @@ export function EventSidebar({
         </div>
       </motion.div>
 
+      {/* Review Form */}
       {canUserSubmitReview() && (
         <AnimatePresence>
           {showReviewForm && (
@@ -540,6 +598,7 @@ export function EventSidebar({
         </AnimatePresence>
       )}
 
+      {/* What to Expect Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

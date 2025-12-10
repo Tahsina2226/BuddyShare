@@ -21,6 +21,10 @@ import {
   FiTrendingUp,
   FiShield,
   FiFileText,
+  FiHome,
+  FiActivity,
+  FiPieChart,
+  FiTarget,
 } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 
@@ -156,10 +160,31 @@ export default function Navbar() {
     return `/profile/${currentUser.id}`;
   };
 
+  const getDashboardUrl = (): string => {
+    if (!currentUser || !currentUser.id) {
+      return "/auth/login";
+    }
+    
+    if (currentUser.role === "admin") {
+      return "/dashboard";
+    } else if (currentUser.role === "host") {
+      return "/dashboard";
+    } else {
+      return "/dashboard";
+    }
+  };
+
   const getMenuItems = () => {
     const profileUrl = getProfileUrl();
+    const dashboardUrl = getDashboardUrl();
     
     const commonItems = [
+      {
+        label: "Dashboard",
+        icon: <FiHome className="w-4 h-4" />,
+        link: dashboardUrl,
+        highlight: true,
+      },
       {
         label: "My Profile",
         icon: <FiUser className="w-4 h-4" />,
@@ -183,6 +208,16 @@ export default function Navbar() {
     ];
 
     const userSpecificItems = [
+      {
+        label: "My Activity",
+        icon: <FiActivity className="w-4 h-4" />,
+        link: "/user/activity",
+      },
+      {
+        label: "Interests Dashboard",
+        icon: <FiTarget className="w-4 h-4" />,
+        link: "/user/interests",
+      },
       {
         label: "Payment History",
         icon: <FiCreditCard className="w-4 h-4" />,
@@ -209,7 +244,8 @@ export default function Navbar() {
       {
         label: "Host Dashboard",
         icon: <FiGrid className="w-4 h-4" />,
-        link: "/dashboard",
+        link: "/host/dashboard",
+        highlight: true,
       },
       {
         label: "Participants",
@@ -222,14 +258,19 @@ export default function Navbar() {
         link: "/host/revenue",
       },
       {
+        label: "Event Analytics",
+        icon: <FiPieChart className="w-4 h-4" />,
+        link: "/host/analytics",
+      },
+      {
         label: "Host Settings",
         icon: <FiSettings className="w-4 h-4" />,
         link: "/host/settings",
       },
       {
-        label: "Host Analytics",
+        label: "Performance",
         icon: <FiTrendingUp className="w-4 h-4" />,
-        link: "/host/analytics",
+        link: "/host/performance",
       },
     ];
 
@@ -238,6 +279,7 @@ export default function Navbar() {
         label: "Admin Dashboard",
         icon: <FiGrid className="w-4 h-4" />,
         link: "/admin/dashboard",
+        highlight: true,
       },
       {
         label: "User Management",
@@ -250,6 +292,11 @@ export default function Navbar() {
         link: "/admin/events",
       },
       {
+        label: "System Analytics",
+        icon: <FiPieChart className="w-4 h-4" />,
+        link: "/admin/analytics",
+      },
+      {
         label: "Security Log",
         icon: <FiShield className="w-4 h-4" />,
         link: "/admin/security",
@@ -260,7 +307,7 @@ export default function Navbar() {
         link: "/admin/settings",
       },
       {
-        label: "Reports & Analytics",
+        label: "Reports",
         icon: <FiFileText className="w-4 h-4" />,
         link: "/admin/reports",
       },
@@ -321,7 +368,11 @@ export default function Navbar() {
       <Link
         key={index}
         href={item.link || "#"}
-        className="flex items-center space-x-3 hover:bg-white/10 px-4 py-2.5 text-white text-sm transition-all duration-200"
+        className={`flex items-center space-x-3 px-4 py-2.5 text-white text-sm transition-all duration-200 ${
+          item.highlight 
+            ? "bg-gradient-to-r from-white/15 to-white/10 hover:from-white/20 hover:to-white/15" 
+            : "hover:bg-white/10"
+        }`}
         onClick={() => {
           setIsUserMenuOpen(false);
           if (isMobile) setIsOpen(false);
@@ -357,6 +408,17 @@ export default function Navbar() {
           </Link>
 
           <div className="hidden md:flex items-center space-x-4">
+            {/* Dashboard Link for all logged in users */}
+            {displayUser && (
+              <Link
+                href={getDashboardUrl()}
+                className="flex items-center space-x-2 bg-gradient-to-r from-white/15 hover:from-white/25 to-white/10 hover:to-white/20 shadow-md hover:shadow-lg px-4 py-2 rounded-lg text-white hover:scale-105 transition-all duration-200"
+              >
+                <FiGrid className="w-4 h-4" />
+                <span>Dashboard</span>
+              </Link>
+            )}
+
             <Link
               href="/events"
               className="flex items-center space-x-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg text-white hover:scale-105 transition-all duration-200"
@@ -414,13 +476,6 @@ export default function Navbar() {
 
                 {displayUser.role === "admin" && (
                   <>
-                    <Link
-                      href="/admin"
-                      className="flex items-center space-x-2 bg-gradient-to-r from-yellow-500/20 hover:from-yellow-500/30 to-amber-500/10 hover:to-amber-500/20 px-4 py-2 rounded-lg text-white hover:scale-105 transition-all duration-200"
-                    >
-                      <FiGrid />
-                      <span>Admin Dashboard</span>
-                    </Link>
                     <Link
                       href="/admin/users"
                       className="flex items-center space-x-2 text-white/90 hover:text-white hover:scale-105 transition-all duration-200"
@@ -577,23 +632,41 @@ export default function Navbar() {
                       </div>
                       <div className="flex space-x-2 mt-2">
                         <Link
+                          href={getDashboardUrl()}
+                          className="bg-white/20 hover:bg-white/30 px-2 py-1 rounded text-white hover:text-white text-xs transition-all duration-200"
+                          onClick={() => setIsOpen(false)}
+                        >
+                          Dashboard
+                        </Link>
+                        <Link
                           href={getProfileUrl()}
                           className="bg-white/10 hover:bg-white/20 px-2 py-1 rounded text-white/80 hover:text-white text-xs transition-all duration-200"
                           onClick={() => setIsOpen(false)}
                         >
-                          View Profile
+                          Profile
                         </Link>
                         <Link
                           href={getEditProfileUrl()}
-                          className="bg-white/20 hover:bg-white/30 px-2 py-1 rounded text-white hover:text-white text-xs transition-all duration-200"
+                          className="bg-white/10 hover:bg-white/20 px-2 py-1 rounded text-white/80 hover:text-white text-xs transition-all duration-200"
                           onClick={() => setIsOpen(false)}
                         >
-                          Edit Profile
+                          Edit
                         </Link>
                       </div>
                     </div>
                   </div>
                 </div>
+              )}
+
+              {displayUser && (
+                <Link
+                  href={getDashboardUrl()}
+                  className="flex items-center space-x-3 bg-gradient-to-r from-white/15 to-white/10 hover:from-white/20 hover:to-white/15 px-4 py-3 rounded-lg text-white transition-all duration-200"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <FiGrid />
+                  <span>Dashboard</span>
+                </Link>
               )}
 
               <Link
@@ -641,14 +714,6 @@ export default function Navbar() {
 
                   {displayUser.role === "admin" && (
                     <>
-                      <Link
-                        href="/admin"
-                        className="flex items-center space-x-3 bg-gradient-to-r from-yellow-500/20 hover:from-yellow-500/30 to-amber-500/10 hover:to-amber-500/20 px-4 py-3 rounded-lg text-white transition-all duration-200"
-                        onClick={() => setIsOpen(false)}
-                      >
-                        <FiGrid />
-                        <span>Admin Dashboard</span>
-                      </Link>
                       <Link
                         href="/admin/users"
                         className="flex items-center space-x-3 hover:bg-white/10 px-4 py-3 rounded-lg text-white transition-all duration-200"

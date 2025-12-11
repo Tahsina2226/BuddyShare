@@ -56,7 +56,17 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [isAdminAvailable, setIsAdminAvailable] = useState(true);
+  
+  // SIMPLE SOLUTION: Check localStorage on initial load
+  const [isAdminAvailable, setIsAdminAvailable] = useState<boolean>(() => {
+    // Check if admin already registered in this browser
+    if (typeof window !== "undefined") {
+      const hasAdmin = localStorage.getItem("hasRegisteredAdmin");
+      return hasAdmin !== "true";
+    }
+    return true;
+  });
+  
   const router = useRouter();
 
   const showAlert = (type: 'success' | 'error' | 'info' | 'warning', message: string) => {
@@ -95,6 +105,7 @@ export default function RegisterPage() {
       return false;
     }
 
+    // Check if admin is available (localStorage based)
     if (formData.role === "admin" && !isAdminAvailable) {
       showAlert('error', "Admin registration is no longer available");
       return false;
@@ -125,21 +136,36 @@ export default function RegisterPage() {
       const res = await API.post("/auth/register", formData);
       const { token, user } = res.data.data;
 
+      // SIMPLE SOLUTION: Save to localStorage if admin registered
+      if (formData.role === "admin") {
+        localStorage.setItem("hasRegisteredAdmin", "true");
+        setIsAdminAvailable(false);
+        showAlert('success', "🎉 Congratulations! You are now the system administrator!");
+      } else {
+        showAlert('success', "Account created successfully! Redirecting to login...");
+      }
+
       toast.dismiss(loadingToast);
-      showAlert('success', "Account created successfully! Redirecting to login...");
 
       setTimeout(() => {
         router.push("/auth/login");
       }, 2000);
 
     } catch (err: any) {
-      console.error("Registration error:", err);
       toast.dismiss(loadingToast);
-      showAlert('error', 
-        err.response?.data?.message ||
-        err.message ||
-        "Registration failed. Please try again."
-      );
+      
+      // Handle admin already exists error from backend
+      if (err.response?.data?.message?.toLowerCase().includes("admin")) {
+        localStorage.setItem("hasRegisteredAdmin", "true");
+        setIsAdminAvailable(false);
+        showAlert('error', "An admin already exists in the system. Please register as a regular user.");
+      } else {
+        showAlert('error', 
+          err.response?.data?.message ||
+          err.message ||
+          "Registration failed. Please try again."
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -175,7 +201,6 @@ export default function RegisterPage() {
         router.push(result.url);
       }
     } catch (err: any) {
-      console.error("Google registration error:", err);
       toast.dismiss(loadingToast);
       showAlert('error', 
         err.message ||
@@ -191,10 +216,6 @@ export default function RegisterPage() {
       script.src = "https://accounts.google.com/gsi/client";
       script.async = true;
       script.defer = true;
-      script.onload = () => {
-        console.log("Google API loaded");
-        showAlert('info', "Google Sign-In ready!");
-      };
       document.body.appendChild(script);
     }
   }, []);
@@ -330,6 +351,14 @@ export default function RegisterPage() {
                   <p className="flex items-center space-x-2 text-yellow-300 text-xs">
                     <FiAlertCircle />
                     <span>Only one admin can be created. This option will disappear after admin registration.</span>
+                  </p>
+                </div>
+              )}
+              {formData.role === "admin" && !isAdminAvailable && (
+                <div className="bg-gradient-to-r from-red-500/20 to-rose-500/20 mt-2 p-3 border border-red-500/30 rounded-lg animate-in fade-in">
+                  <p className="flex items-center space-x-2 text-red-300 text-xs">
+                    <FiAlertCircle />
+                    <span>Admin registration is no longer available.</span>
                   </p>
                 </div>
               )}

@@ -22,6 +22,7 @@ declare module "next-auth" {
     email?: string | null;
     role?: string;
     token?: string;
+    location?: string;
   }
 }
 
@@ -31,6 +32,7 @@ declare module "next-auth/jwt" {
     role?: string;
     accessToken?: string;
     backendToken?: string;
+    location?: string;
   }
 }
 
@@ -48,15 +50,10 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          console.log("🔐 Attempting login to backend:", {
-            url: `${process.env.NEXT_PUBLIC_API_URL}/auth/login`,
-            email: credentials.email,
-          });
-
+          console.log("🔐 Attempting credentials login for:", credentials.email);
+          
           const response = await fetch(
-            `${
-              process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
-            }/auth/login`,
+            `${process.env.NEXT_PUBLIC_API_URL}/auth/login`,
             {
               method: "POST",
               headers: {
@@ -70,7 +67,7 @@ export const authOptions: NextAuthOptions = {
           );
 
           const data = await response.json();
-          console.log("Backend response:", data);
+          console.log("Backend login response:", data);
 
           if (!data.success) {
             throw new Error(data.message || "Login failed");
@@ -82,11 +79,11 @@ export const authOptions: NextAuthOptions = {
 
           const { user, token } = data.data;
 
+          // Save to localStorage if in browser
           if (typeof window !== "undefined") {
             localStorage.setItem("token", token);
-            localStorage.setItem("auth_token", token);
-            localStorage.setItem("access_token", token);
             localStorage.setItem("user", JSON.stringify(user));
+            console.log("✅ Saved auth data to localStorage");
           }
 
           return {
@@ -94,18 +91,18 @@ export const authOptions: NextAuthOptions = {
             email: user.email,
             name: user.name,
             role: user.role || "user",
+            location: user.location || "",
             token: token,
-            ...user,
           };
         } catch (error: any) {
-          console.error("Auth error:", error);
-
+          console.error("❌ Auth error:", error);
+          
           if (
             error.message.includes("Network") ||
             error.message.includes("fetch")
           ) {
             throw new Error(
-              "Cannot connect to server. Please check if backend is running on http://localhost:5000"
+              "Cannot connect to server. Please check if backend is running"
             );
           }
 
@@ -122,6 +119,13 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          prompt: "select_account",
+          access_type: "offline",
+          response_type: "code"
+        }
+      }
     }),
   ],
   pages: {
@@ -131,26 +135,19 @@ export const authOptions: NextAuthOptions = {
     newUser: "/auth/register",
   },
   callbacks: {
-    async jwt({ token, user, account }) {
-      if (user) {
-        token.id = user.id;
-        token.role = (user as any).role;
-        token.backendToken = (user as any).token;
-        token.accessToken = (user as any).token;
-
-        if (typeof window !== "undefined" && (user as any).token) {
-          localStorage.setItem("token", (user as any).token);
-          localStorage.setItem("auth_token", (user as any).token);
-          localStorage.setItem("access_token", (user as any).token);
-        }
-      }
+    async signIn({ user, account, profile }) {
+      console.log("🔐 SignIn callback triggered:", {
+        provider: account?.provider,
+        email: user.email,
+        hasAccount: !!account
+      });
 
       if (account?.provider === "google") {
         try {
+          console.log("🔐 Processing Google sign-in...");
+          
           const response = await fetch(
-            `${
-              process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
-            }/auth/google`,
+            `${process.env.NEXT_PUBLIC_API_URL}/auth/google`,
             {
               method: "POST",
               headers: {
@@ -158,69 +155,180 @@ export const authOptions: NextAuthOptions = {
               },
               body: JSON.stringify({
                 token: account.id_token,
-                email: token.email,
-                name: token.name,
+                email: user.email,
+                name: user.name,
               }),
             }
           );
 
           const data = await response.json();
-          if (data.success) {
-            token.id = data.data.user._id;
-            token.role = data.data.user.role;
-            token.backendToken = data.data.token;
+          console.log("Google backend response:", data);
 
+          if (data.success && data.data?.token) {
+            // Update user object with backend data
+            user.id = data.data.user._id || data.data.user.id;
+            user.role = data.data.user.role;
+            user.token = data.data.token;
+            user.location = data.data.user.location || "";
+
+            // Save to localStorage immediately
             if (typeof window !== "undefined") {
               localStorage.setItem("token", data.data.token);
               localStorage.setItem("user", JSON.stringify(data.data.user));
+              console.log("✅ Google auth data saved to localStorage");
             }
+            
+            return true;
+          } else {
+            console.error("Google backend auth failed:", data.message);
+            return false;
           }
         } catch (error) {
-          console.error("Google auth backend sync error:", error);
+          console.error("❌ Google auth backend sync error:", error);
+          return false;
         }
+      }
+      
+      return true;
+    },
+
+    async jwt({ token, user, account, trigger, session }) {
+      console.log("🔐 JWT callback:", { 
+        hasUser: !!user, 
+        provider: account?.provider,
+        trigger 
+      });
+
+      // Initial sign in
+      if (user) {
+        console.log("🔐 Setting JWT from user:", { 
+          id: user.id, 
+          role: (user as any).role,
+          hasToken: !!(user as any).token
+        });
+        
+        token.id = user.id;
+        token.role = (user as any).role;
+        token.backendToken = (user as any).token;
+        token.accessToken = (user as any).token;
+        token.location = (user as any).location || "";
+
+        // Save to localStorage if token exists
+        if (typeof window !== "undefined" && (user as any).token) {
+          localStorage.setItem("token", (user as any).token);
+          localStorage.setItem("user", JSON.stringify({
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: (user as any).role || "user",
+            location: (user as any).location || "",
+            token: (user as any).token
+          }));
+          console.log("✅ JWT saved auth data to localStorage");
+        }
+      }
+
+      // Handle session updates
+      if (trigger === "update" && session?.user) {
+        console.log("🔐 Updating JWT from session update");
+        token.id = session.user.id;
+        token.role = session.user.role;
+        token.backendToken = session.user.token;
+        token.accessToken = session.user.token;
       }
 
       return token;
     },
 
     async session({ session, token }): Promise<Session> {
+      console.log("🔐 Session callback:", { 
+        userId: token.id, 
+        hasToken: !!token.backendToken 
+      });
+
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
-        session.user.token = token.backendToken as string;
-        session.accessToken = token.backendToken as string;
-        session.backendToken = token.backendToken as string;
+        
+        // Ensure token is passed from JWT to session
+        const backendToken = token.backendToken as string;
+        session.user.token = backendToken;
+        session.accessToken = backendToken;
+        session.backendToken = backendToken;
+
+        console.log("🔐 Setting session data:", {
+          userId: session.user.id,
+          role: session.user.role,
+          hasToken: !!backendToken,
+          tokenLength: backendToken?.length || 0
+        });
+
+        // Immediately save to localStorage when session is created
+        if (typeof window !== "undefined" && backendToken) {
+          try {
+            localStorage.setItem("token", backendToken);
+            localStorage.setItem("user", JSON.stringify({
+              id: token.id,
+              name: token.name,
+              email: token.email,
+              role: token.role || "user",
+              location: token.location || "",
+              token: backendToken
+            }));
+            console.log("✅ Session saved auth data to localStorage");
+          } catch (error) {
+            console.error("❌ Error saving to localStorage:", error);
+          }
+        }
       }
+      
       return session;
     },
 
     async redirect({ url, baseUrl }) {
+      console.log("🔐 Redirect callback:", { url, baseUrl });
+      
+      // If trying to access auth pages while logged in, redirect to home
       if (url.includes("/auth/login") || url.includes("/api/auth")) {
-        return `${baseUrl}/`;
+        return `${baseUrl}/dashboard`;
       }
+      
       return url.startsWith("/") ? `${baseUrl}${url}` : url;
     },
   },
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60,
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === "development",
 
   events: {
     async signIn({ user, account, profile, isNewUser }) {
-      console.log("User signed in:", user.email);
+      console.log("✅ User signed in:", { 
+        email: user.email, 
+        provider: account?.provider,
+        isNewUser 
+      });
     },
     async signOut({ token, session }) {
-      console.log("User signed out");
+      console.log("👋 User signed out");
       if (typeof window !== "undefined") {
-        localStorage.removeItem("token");
-        localStorage.removeItem("auth_token");
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("user");
+        try {
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          console.log("✅ Cleared localStorage on sign out");
+        } catch (error) {
+          console.error("❌ Error clearing localStorage:", error);
+        }
       }
     },
+    async session({ session, token }) {
+      console.log("🔐 Session event:", { 
+        email: session.user.email,
+        userId: session.user.id 
+      });
+    }
   },
 };
 

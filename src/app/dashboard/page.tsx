@@ -3,37 +3,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { DashboardData } from "@/types/dashboard";
-import {
-  Calendar,
-  Users,
-  DollarSign,
-  Star,
-  TrendingUp,
-  Clock,
-  AlertCircle,
-  Plus,
-  ExternalLink,
-  Sparkles,
-  Target,
-  Trophy,
-  Zap,
-  CreditCard,
-  Settings,
-  Heart,
-  Activity,
-  Package,
-  CheckCircle,
-  BarChart3,
-  Eye,
-  Bell,
-  MessageSquare,
-  MapPin,
-  Filter,
-  Search,
-  Download,
-  Share2,
-  HelpCircle,
-} from "lucide-react";
 import EventCard from "@/components/events/EventCard";
 import PaymentHistoryComponent from "@/App/payment/PaymentHistory";
 import Link from "next/link";
@@ -46,14 +15,46 @@ import {
   ComparisonChart,
 } from "@/components/charts/DashboardChart";
 import toast, { Toaster } from "react-hot-toast";
+import {
+  FiCalendar,
+  FiUsers,
+  FiDollarSign,
+  FiTrendingUp,
+  FiBell,
+  FiSettings,
+  FiHelpCircle,
+  FiLogOut,
+  FiPlus,
+  FiSearch,
+  FiFilter,
+  FiDownload,
+  FiShare2,
+  FiStar,
+  FiMapPin,
+  FiActivity,
+  FiCreditCard,
+  FiCheckCircle,
+  FiAlertCircle,
+  FiRefreshCw,
+  FiGrid,
+  FiPieChart,
+  FiBarChart2,
+  FiTarget,
+  FiAward,
+  FiGlobe,
+} from "react-icons/fi";
 
 export default function DashboardPage() {
   const { user, logout } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(
+    null
+  );
   const [chartData, setChartData] = useState<any>(null);
-  const [timeRange, setTimeRange] = useState<"week" | "month" | "year">("month");
+  const [timeRange, setTimeRange] = useState<"week" | "month" | "year">(
+    "month"
+  );
   const [activeTab, setActiveTab] = useState<
     "overview" | "events" | "analytics" | "payments" | "hosting"
   >("overview");
@@ -63,10 +64,9 @@ export default function DashboardPage() {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        
+
         const token = localStorage.getItem("token") || "";
-        
-        // Fetch joined events
+
         const joinedResponse = await fetch(
           "http://localhost:5000/api/events/joined/events",
           {
@@ -100,7 +100,6 @@ export default function DashboardPage() {
           }
         }
 
-        // Fetch notifications
         const notificationsResponse = await fetch(
           "http://localhost:5000/api/notifications",
           {
@@ -116,12 +115,11 @@ export default function DashboardPage() {
           notifications = notificationsData.data || [];
         }
 
-        // Fetch payment history
         let paymentStats = {
           totalSpent: 0,
           succeededPayments: 0,
-          pendingPayments: 0,
-          failedPayments: 0,
+          allPayments: [] as any[],
+          succeededPaymentsList: [] as any[],
         };
 
         try {
@@ -136,15 +134,20 @@ export default function DashboardPage() {
 
           if (paymentsResponse.ok) {
             const paymentsData = await paymentsResponse.json();
-            const payments = paymentsData.data?.payments || [];
-            
-            paymentStats.totalSpent = payments
-              .filter((p: any) => p.status === 'succeeded')
-              .reduce((sum: number, p: any) => sum + p.amount, 0);
-            
-            paymentStats.succeededPayments = payments.filter((p: any) => p.status === 'succeeded').length;
-            paymentStats.pendingPayments = payments.filter((p: any) => p.status === 'pending').length;
-            paymentStats.failedPayments = payments.filter((p: any) => p.status === 'failed').length;
+            const allPayments = paymentsData.data?.payments || [];
+
+            const succeededPayments = allPayments.filter(
+              (p: any) => p.status === "succeeded" || p.status === "completed"
+            );
+
+            paymentStats.totalSpent = succeededPayments.reduce(
+              (sum: number, p: any) => sum + p.amount,
+              0
+            );
+
+            paymentStats.succeededPayments = succeededPayments.length;
+            paymentStats.allPayments = allPayments;
+            paymentStats.succeededPaymentsList = succeededPayments;
           }
         } catch (paymentError) {
           console.warn("Could not fetch payment history:", paymentError);
@@ -176,44 +179,66 @@ export default function DashboardPage() {
           (event: any) => event.status === "completed"
         );
 
-        const totalSpent = joinedEvents.reduce(
-          (sum: number, event: any) => sum + (event.joiningFee || 0),
-          0
-        );
+        const avgSpending =
+          paymentStats.succeededPayments > 0
+            ? paymentStats.totalSpent / paymentStats.succeededPayments
+            : 0;
 
-        const hostEarnings = hostedEvents.reduce(
-          (sum: number, event: any) =>
-            sum + (event.joiningFee || 0) * (event.participants?.length || 0),
-          0
-        );
+        const hostEarnings = paymentStats.succeededPaymentsList
+          .filter((p: any) => p.event?.host === user?.id)
+          .reduce((sum: number, p: any) => sum + p.amount, 0);
 
-        const avgSpending = joinedEvents.length > 0 
-          ? totalSpent / joinedEvents.length 
-          : 0;
+        const reviewsFromEvents = hostedEvents.flatMap(
+          (event: any) => event.reviews || []
+        );
+        const averageRating =
+          reviewsFromEvents.length > 0
+            ? reviewsFromEvents.reduce(
+                (sum: number, review: any) => sum + review.rating,
+                0
+              ) / reviewsFromEvents.length
+            : 0;
+
+        const conversionRate =
+          hostedEvents.length > 0
+            ? Math.round(
+                (activeHostedEvents.length / hostedEvents.length) * 100
+              )
+            : 0;
+
+        const engagementRate =
+          joinedEvents.length > 0
+            ? Math.round((upcomingEvents.length / joinedEvents.length) * 100)
+            : 0;
 
         const stats = {
           hostedEvents: hostedEvents.length,
           joinedEvents: joinedEvents.length,
           upcomingEvents: upcomingEvents.length,
           pastEvents: pastEvents.length,
-          totalSpent: paymentStats.totalSpent || totalSpent,
-          hostEarnings,
-          avgSpending,
-          averageRating: 4.7,
-          totalReviews: 24,
+          totalSpent: paymentStats.totalSpent,
+          hostEarnings: hostEarnings,
+          avgSpending: avgSpending,
+          averageRating: parseFloat(averageRating.toFixed(1)),
+          totalReviews: reviewsFromEvents.length,
           activeHostedEvents: activeHostedEvents.length,
           completedHostedEvents: completedHostedEvents.length,
-          conversionRate: 65,
-          engagementRate: 42,
+          conversionRate: conversionRate,
+          engagementRate: engagementRate,
           notifications: notifications.length,
           succeededPayments: paymentStats.succeededPayments,
-          pendingPayments: paymentStats.pendingPayments,
-          failedPayments: paymentStats.failedPayments,
+          pendingPayments: paymentStats.allPayments.filter(
+            (p: any) => p.status === "pending" || p.status === "processing"
+          ).length,
+          failedPayments: paymentStats.allPayments.filter(
+            (p: any) => p.status === "failed" || p.status === "canceled"
+          ).length,
         };
 
         const chartData = generateChartData(
           joinedEvents,
           hostedEvents,
+          paymentStats.succeededPaymentsList,
           timeRange
         );
 
@@ -231,15 +256,15 @@ export default function DashboardPage() {
       } catch (err) {
         console.error("Error fetching dashboard data:", err);
         setError("Failed to load dashboard data. Please try again.");
-        
+
         toast.error(
           <div className="flex items-center gap-3">
-            <div className="bg-red-500/20 p-2 rounded-lg">
-              <AlertCircle className="w-5 h-5 text-red-400" />
+            <div className="bg-[#9C6A50]/20 p-2 rounded-lg">
+              <FiAlertCircle className="text-[#9C6A50] text-xl" />
             </div>
             <div>
-              <p className="font-medium">Dashboard Error</p>
-              <p className="text-gray-400 text-sm">
+              <p className="font-medium text-[#F5F0EB]">Dashboard Error</p>
+              <p className="text-[#D2C1B6]/70 text-sm">
                 Could not load dashboard data
               </p>
             </div>
@@ -259,7 +284,12 @@ export default function DashboardPage() {
     }
   }, [user, timeRange]);
 
-  const generateChartData = (joinedEvents: any[], hostedEvents: any[], range: string) => {
+  const generateChartData = (
+    joinedEvents: any[],
+    hostedEvents: any[],
+    succeededPayments: any[],
+    range: string
+  ) => {
     let days = 7;
     if (range === "month") days = 30;
     if (range === "year") days = 365;
@@ -268,77 +298,138 @@ export default function DashboardPage() {
     for (let i = days - 1; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
-      
-      const dayEvents = hostedEvents.filter((event: any) => {
-        const eventDate = new Date(event.date);
-        return eventDate.toDateString() === date.toDateString();
+
+      const dayPayments = succeededPayments.filter((payment: any) => {
+        const paymentDate = new Date(payment.createdAt);
+        return paymentDate.toDateString() === date.toDateString();
       });
-      
-      const revenue = dayEvents.reduce((sum: number, event: any) => {
-        return sum + (event.joiningFee || 0) * (event.participants?.length || 0);
+
+      const revenue = dayPayments.reduce((sum: number, payment: any) => {
+        return sum + payment.amount;
       }, 0);
-      
+
       revenueData.push({
-        date: date.toLocaleDateString('en-US', { 
-          month: 'short', 
-          day: 'numeric',
-          ...(range === 'year' && { month: 'short' })
+        date: date.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          ...(range === "year" && { month: "short" }),
         }),
         revenue,
       });
     }
 
-    const eventTypes = ["Sports", "Music", "Food", "Tech", "Art", "Gaming", "Travel"];
-    const typeDistribution = eventTypes.map(type => {
-      const count = hostedEvents.filter((event: any) => 
-        event.category?.toLowerCase() === type.toLowerCase()
-      ).length;
-      return { type, count };
-    }).filter(item => item.count > 0);
+    const typeDistribution = hostedEvents.reduce((acc: any[], event: any) => {
+      const category = event.category || "Other";
+      const existingType = acc.find((item) => item.type === category);
 
-    const allEvents = [...joinedEvents, ...hostedEvents]
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 5);
+      if (existingType) {
+        existingType.count += 1;
+      } else {
+        acc.push({ type: category, count: 1 });
+      }
 
-    const activityData = allEvents.map((event: any) => ({
-      date: new Date(event.date).toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric' 
-      }),
-      title: event.title,
-      type: joinedEvents.includes(event) ? "joined" : "hosted",
-      amount: event.joiningFee || 0,
-    }));
+      return acc;
+    }, []);
 
-    const labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"];
+    const paymentActivity = succeededPayments
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
+      .slice(0, 5)
+      .map((payment: any) => ({
+        date: new Date(payment.createdAt).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        }),
+        title:
+          payment.event?.title ||
+          `Payment ${payment._id?.slice(-8) || payment.id?.slice(-8) || "N/A"}`,
+        type: payment.event?.host === user?.id ? "hosted" : "joined",
+        amount: payment.amount,
+        status: payment.status,
+      }));
+
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    const currentMonth = new Date().getMonth();
+    const labels = months.slice(
+      Math.max(0, currentMonth - 6),
+      currentMonth + 1
+    );
+
+    const joinedByMonth = new Array(labels.length).fill(0);
+    const hostedByMonth = new Array(labels.length).fill(0);
+
+    joinedEvents.forEach((event: any) => {
+      const eventDate = new Date(event.date);
+      const monthIndex = months[eventDate.getMonth()];
+      const labelIndex = labels.indexOf(monthIndex);
+      if (labelIndex !== -1) {
+        joinedByMonth[labelIndex] += 1;
+      }
+    });
+
+    hostedEvents.forEach((event: any) => {
+      const eventDate = new Date(event.date);
+      const monthIndex = months[eventDate.getMonth()];
+      const labelIndex = labels.indexOf(monthIndex);
+      if (labelIndex !== -1) {
+        hostedByMonth[labelIndex] += 1;
+      }
+    });
+
     const statsComparison = {
       labels,
       datasets: [
         {
           label: "Events Joined",
-          data: [3, 5, 2, 8, 4, 6, 7],
-          borderColor: "#0ea5e9",
-          backgroundColor: "rgba(14, 165, 233, 0.1)",
+          data: joinedByMonth,
+          borderColor: "#234C6A",
+          backgroundColor: "rgba(35, 76, 106, 0.1)",
           tension: 0.4,
         },
         {
           label: "Events Hosted",
-          data: [1, 2, 1, 3, 2, 4, 3],
-          borderColor: "#10b981",
-          backgroundColor: "rgba(16, 185, 129, 0.1)",
+          data: hostedByMonth,
+          borderColor: "#96A78D",
+          backgroundColor: "rgba(150, 167, 141, 0.1)",
           tension: 0.4,
         },
       ],
     };
 
+    const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const weeklyActivityData = new Array(7).fill(0);
+
+    const allEvents = [...joinedEvents, ...hostedEvents];
+    allEvents.forEach((event: any) => {
+      const eventDate = new Date(event.date);
+      const dayOfWeek = eventDate.getDay();
+      const adjustedDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      weeklyActivityData[adjustedDay] += 1;
+    });
+
     const weeklyActivity = {
-      labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      labels: daysOfWeek,
       datasets: [
         {
           label: "Activity",
-          data: [12, 19, 8, 15, 22, 18, 25],
-          backgroundColor: "rgba(14, 165, 233, 0.8)",
-          borderColor: "#0ea5e9",
+          data: weeklyActivityData,
+          backgroundColor: "rgba(35, 76, 106, 0.8)",
+          borderColor: "#234C6A",
           borderWidth: 1,
         },
       ],
@@ -347,7 +438,7 @@ export default function DashboardPage() {
     return {
       revenueData,
       typeDistribution,
-      activityData,
+      activityData: paymentActivity,
       statsComparison,
       weeklyActivity,
     };
@@ -373,17 +464,15 @@ export default function DashboardPage() {
   const handleLogout = () => {
     logout();
     window.location.href = "/login";
-    
+
     toast.success(
       <div className="flex items-center gap-3">
-        <div className="bg-emerald-500/20 p-2 rounded-lg">
-          <CheckCircle className="w-5 h-5 text-emerald-400" />
+        <div className="bg-[#96A78D]/20 p-2 rounded-lg">
+          <FiCheckCircle className="text-[#96A78D] text-xl" />
         </div>
         <div>
-          <p className="font-medium">Logged out successfully</p>
-          <p className="text-gray-400 text-sm">
-            Redirecting to login page
-          </p>
+          <p className="font-medium text-[#F5F0EB]">Logged out successfully</p>
+          <p className="text-[#D2C1B6]/70 text-sm">Redirecting to login page</p>
         </div>
       </div>,
       {
@@ -396,12 +485,12 @@ export default function DashboardPage() {
   const exportData = () => {
     toast.success(
       <div className="flex items-center gap-3">
-        <div className="bg-emerald-500/20 p-2 rounded-lg">
-          <Download className="w-5 h-5 text-emerald-400" />
+        <div className="bg-[#96A78D]/20 p-2 rounded-lg">
+          <FiDownload className="text-[#96A78D] text-xl" />
         </div>
         <div>
-          <p className="font-medium">Data exported</p>
-          <p className="text-gray-400 text-sm">
+          <p className="font-medium text-[#F5F0EB]">Data exported</p>
+          <p className="text-[#D2C1B6]/70 text-sm">
             Dashboard data downloaded successfully
           </p>
         </div>
@@ -416,19 +505,19 @@ export default function DashboardPage() {
   const shareDashboard = () => {
     if (navigator.share) {
       navigator.share({
-        title: "My EventHub Dashboard",
-        text: "Check out my EventHub dashboard!",
+        title: "My EventBuddy Dashboard",
+        text: "Check out my EventBuddy dashboard!",
         url: window.location.href,
       });
     } else {
       toast.success(
         <div className="flex items-center gap-3">
-          <div className="bg-emerald-500/20 p-2 rounded-lg">
-            <Share2 className="w-5 h-5 text-emerald-400" />
+          <div className="bg-[#96A78D]/20 p-2 rounded-lg">
+            <FiShare2 className="text-[#96A78D] text-xl" />
           </div>
           <div>
-            <p className="font-medium">Link copied</p>
-            <p className="text-gray-400 text-sm">
+            <p className="font-medium text-[#F5F0EB]">Link copied</p>
+            <p className="text-[#D2C1B6]/70 text-sm">
               Dashboard link copied to clipboard
             </p>
           </div>
@@ -447,24 +536,24 @@ export default function DashboardPage() {
         <Toaster
           toastOptions={{
             style: {
-              background: "rgba(255, 255, 255, 0.1)",
+              background: "rgba(35, 76, 106, 0.9)",
               backdropFilter: "blur(10px)",
-              border: "1px solid rgba(255, 255, 255, 0.2)",
-              color: "white",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+              color: "#F5F0EB",
               borderRadius: "12px",
               padding: "16px",
             },
           }}
         />
-        <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-950 flex items-center justify-center">
+        <div className="flex justify-center items-center bg-gradient-to-b from-[#234C6A] via-[#2E5A7A] to-[#96A78D] min-h-screen">
           <div className="text-center">
             <div className="relative">
-              <div className="w-16 h-16 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin"></div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-8 h-8 bg-cyan-500/20 rounded-full"></div>
+              <div className="border-[#D2C1B6]/30 border-4 border-t-[#D2C1B6] rounded-full w-16 h-16 animate-spin"></div>
+              <div className="absolute inset-0 flex justify-center items-center">
+                <div className="bg-gradient-to-r from-[#234C6A] to-[#96A78D] rounded-full w-8 h-8 animate-pulse"></div>
               </div>
             </div>
-            <p className="mt-6 text-white/70 animate-pulse">
+            <p className="mt-6 text-[#F5F0EB] animate-pulse">
               Loading your dashboard...
             </p>
           </div>
@@ -479,35 +568,36 @@ export default function DashboardPage() {
         <Toaster
           toastOptions={{
             style: {
-              background: "rgba(255, 255, 255, 0.1)",
+              background: "rgba(35, 76, 106, 0.9)",
               backdropFilter: "blur(10px)",
-              border: "1px solid rgba(255, 255, 255, 0.2)",
-              color: "white",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+              color: "#F5F0EB",
               borderRadius: "12px",
               padding: "16px",
             },
           }}
         />
-        <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-950 py-8">
+        <div className="bg-gradient-to-b from-[#234C6A] via-[#2E5A7A] to-[#96A78D] py-8 min-h-screen">
           <div className="mx-auto px-4 max-w-7xl">
             <div className="py-12 text-center">
-              <div className="inline-flex justify-center items-center bg-gradient-to-r from-red-500/20 to-rose-500/20 mb-4 border border-red-500/30 rounded-full w-16 h-16">
-                <AlertCircle className="w-10 h-10 text-red-400" />
+              <div className="inline-flex justify-center items-center bg-gradient-to-r from-[#9C6A50]/20 to-[#D2C1B6]/20 mb-4 border border-[#9C6A50]/30 rounded-full w-16 h-16">
+                <FiAlertCircle className="text-[#9C6A50] text-2xl" />
               </div>
-              <h2 className="bg-clip-text bg-gradient-to-r from-white via-white/90 to-white/70 mb-2 font-bold text-transparent text-2xl">
+              <h2 className="bg-clip-text bg-gradient-to-r from-[#F5F0EB] via-[#D2C1B6] to-[#9C6A50] mb-2 font-bold text-transparent text-2xl">
                 Error Loading Dashboard
               </h2>
-              <p className="mb-6 text-white/70">{error}</p>
+              <p className="mb-6 text-[#F5F0EB]/80">{error}</p>
               <div className="flex justify-center gap-4">
                 <button
                   onClick={() => window.location.reload()}
-                  className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 hover:from-cyan-500/30 hover:to-blue-500/30 px-6 py-3 border border-cyan-500/50 rounded-xl text-cyan-400 transition-all"
+                  className="flex items-center gap-2 bg-gradient-to-r from-[#234C6A]/20 hover:from-[#234C6A]/30 to-[#96A78D]/20 hover:to-[#96A78D]/30 px-6 py-3 border border-[#96A78D]/50 rounded-xl text-[#96A78D] transition-all"
                 >
+                  <FiRefreshCw />
                   Try Again
                 </button>
                 <Link
                   href="/"
-                  className="bg-gradient-to-r from-white/10 to-white/5 hover:from-white/20 hover:to-white/10 px-6 py-3 border border-white/30 rounded-xl text-white transition-all"
+                  className="flex items-center gap-2 bg-gradient-to-r from-white/10 hover:from-white/20 to-white/5 hover:to-white/10 px-6 py-3 border border-white/30 rounded-xl text-white transition-all"
                 >
                   Go Home
                 </Link>
@@ -524,59 +614,68 @@ export default function DashboardPage() {
   }
 
   const isHostOrAdmin = user?.role === "host" || user?.role === "admin";
+  const citiesVisited = new Set(
+    dashboardData.recentEvents
+      .map((event: any) => event.location)
+      .filter(Boolean)
+  ).size;
+  const activeStreak = "14 days";
 
   return (
     <>
       <Toaster
         toastOptions={{
           style: {
-            background: "rgba(255, 255, 255, 0.1)",
+            background: "rgba(35, 76, 106, 0.9)",
             backdropFilter: "blur(10px)",
-            border: "1px solid rgba(255, 255, 255, 0.2)",
-            color: "white",
+            border: "1px solid rgba(255, 255, 255, 0.1)",
+            color: "#F5F0EB",
             borderRadius: "12px",
             padding: "16px",
           },
         }}
       />
-      <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-950">
-        <div className="border-b border-white/10">
-          <div className="mx-auto px-4 max-w-7xl py-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="bg-gradient-to-b from-[#234C6A] via-[#2E5A7A] to-[#96A78D] min-h-screen">
+        <div className="backdrop-blur-md border-[#F5F0EB]/10 border-b">
+          <div className="mx-auto px-4 py-6 max-w-7xl">
+            <div className="flex md:flex-row flex-col justify-between items-start md:items-center gap-4">
               <div>
                 <div className="flex items-center gap-3 mb-2">
-                  <div className="bg-gradient-to-r from-cyan-500 to-blue-500 p-2 rounded-lg">
-                    <Sparkles className="w-6 h-6 text-white" />
+                  <div className="bg-gradient-to-r from-[#234C6A] to-[#96A78D] shadow-lg p-2 rounded-xl">
+                    <FiGrid className="text-white text-xl" />
                   </div>
                   <div>
-                    <h1 className="bg-clip-text bg-gradient-to-r from-white via-cyan-200 to-blue-200 font-bold text-transparent text-3xl">
+                    <h1 className="bg-clip-text bg-gradient-to-r from-white via-[#D2C1B6] to-[#F5F0EB] font-bold text-transparent text-3xl">
                       Dashboard
                     </h1>
-                    <p className="text-white/70 mt-1">
-                      Welcome back, <span className="text-cyan-300">{user?.name}</span>
+                    <p className="mt-1 text-[#F5F0EB]/80">
+                      Welcome back,{" "}
+                      <span className="font-medium text-[#D2C1B6]">
+                        {user?.name}
+                      </span>
                     </p>
                   </div>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-4">
                 <div className="hidden md:block relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search className="w-5 h-5 text-white/50" />
+                  <div className="left-0 absolute inset-y-0 flex items-center pl-3 pointer-events-none">
+                    <FiSearch className="text-[#F5F0EB]/50" />
                   </div>
                   <input
                     type="text"
                     placeholder="Search events, payments..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-white placeholder-white/50 focus:outline-none focus:border-cyan-500/50 w-64"
+                    className="bg-white/5 backdrop-blur-sm py-2 pr-4 pl-10 border border-white/10 focus:border-[#96A78D]/50 rounded-xl focus:outline-none w-64 text-white placeholder-[#F5F0EB]/50"
                   />
                 </div>
 
-                <button className="relative p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all">
-                  <Bell className="w-5 h-5 text-white" />
+                <button className="relative bg-white/5 hover:bg-white/10 backdrop-blur-sm p-2 rounded-lg transition-all">
+                  <FiBell className="text-[#F5F0EB]" />
                   {dashboardData.stats.notifications > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    <span className="-top-1 -right-1 absolute flex justify-center items-center bg-gradient-to-r from-[#9C6A50] to-[#D2C1B6] rounded-full w-5 h-5 font-medium text-white text-xs">
                       {dashboardData.stats.notifications}
                     </span>
                   )}
@@ -584,16 +683,18 @@ export default function DashboardPage() {
 
                 <Link
                   href={`/profile/${user?.id}`}
-                  className="flex items-center gap-3 bg-white/5 hover:bg-white/10 px-4 py-2 rounded-xl transition-all"
+                  className="flex items-center gap-3 bg-white/5 hover:bg-white/10 backdrop-blur-sm px-4 py-2 rounded-xl transition-all"
                 >
-                  <div className="w-8 h-8 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center">
+                  <div className="flex justify-center items-center bg-gradient-to-r from-[#234C6A] to-[#96A78D] rounded-full w-8 h-8">
                     <span className="font-bold text-white">
                       {user?.name?.charAt(0).toUpperCase()}
                     </span>
                   </div>
                   <div className="hidden sm:block">
                     <div className="font-medium text-white">{user?.name}</div>
-                    <div className="text-white/50 text-xs">{user?.email}</div>
+                    <div className="text-[#F5F0EB]/60 text-xs">
+                      {user?.email}
+                    </div>
                   </div>
                 </Link>
               </div>
@@ -601,17 +702,17 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="mx-auto px-4 max-w-7xl py-8">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-            <div className="inline-flex bg-white/5 rounded-lg p-1">
+        <div className="mx-auto px-4 py-8 max-w-7xl">
+          <div className="flex md:flex-row flex-col justify-between items-start md:items-center gap-4 mb-8">
+            <div className="inline-flex bg-white/5 backdrop-blur-sm p-1 rounded-lg">
               {["week", "month", "year"].map((range) => (
                 <button
                   key={range}
                   onClick={() => setTimeRange(range as any)}
                   className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
                     timeRange === range
-                      ? "bg-cyan-500/20 text-cyan-400"
-                      : "text-white/50 hover:text-white hover:bg-white/5"
+                      ? "bg-gradient-to-r from-[#234C6A]/30 to-[#96A78D]/30 text-[#D2C1B6]"
+                      : "text-[#F5F0EB]/60 hover:text-white hover:bg-white/5"
                   }`}
                 >
                   {range.charAt(0).toUpperCase() + range.slice(1)}
@@ -622,24 +723,24 @@ export default function DashboardPage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={exportData}
-                className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white transition-all"
+                className="flex items-center gap-2 bg-white/5 hover:bg-white/10 backdrop-blur-sm px-4 py-2 border border-white/10 rounded-xl text-white transition-all"
               >
-                <Download className="w-4 h-4" />
+                <FiDownload />
                 <span className="hidden sm:inline">Export</span>
               </button>
               <button
                 onClick={shareDashboard}
-                className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white transition-all"
+                className="flex items-center gap-2 bg-white/5 hover:bg-white/10 backdrop-blur-sm px-4 py-2 border border-white/10 rounded-xl text-white transition-all"
               >
-                <Share2 className="w-4 h-4" />
+                <FiShare2 />
                 <span className="hidden sm:inline">Share</span>
               </button>
               {isHostOrAdmin && (
                 <Link
                   href="/events/create"
-                  className="flex items-center gap-2 px-4 py-2 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/50 rounded-xl text-cyan-400 transition-all"
+                  className="flex items-center gap-2 bg-gradient-to-r from-[#234C6A]/30 hover:from-[#234C6A]/40 to-[#96A78D]/30 hover:to-[#96A78D]/40 px-4 py-2 border border-[#96A78D]/50 rounded-xl text-[#D2C1B6] transition-all"
                 >
-                  <Plus className="w-4 h-4" />
+                  <FiPlus />
                   <span className="hidden sm:inline">Create Event</span>
                 </Link>
               )}
@@ -656,48 +757,53 @@ export default function DashboardPage() {
               {
                 label: "Upcoming Events",
                 value: dashboardData.stats.upcomingEvents.toString(),
-                icon: Calendar,
-                gradient: "from-cyan-500 to-blue-500",
-                change: dashboardData.stats.upcomingEvents > 0 ? "+2 this week" : "No upcoming events",
-                chartData: [3, 5, 2, 8, 4, 6, 7],
+                icon: FiCalendar,
+                gradient: "from-[#234C6A] to-[#2E5A7A]",
+                change:
+                  dashboardData.stats.upcomingEvents > 0
+                    ? `${dashboardData.stats.upcomingEvents} upcoming`
+                    : "No upcoming events",
               },
               {
                 label: "Total Joined",
                 value: dashboardData.stats.joinedEvents.toString(),
-                icon: Users,
-                gradient: "from-emerald-500 to-green-500",
-                change: dashboardData.stats.joinedEvents > 0 ? "+12% growth" : "Start joining",
-                chartData: [2, 4, 6, 8, 10, 12, 14],
+                icon: FiUsers,
+                gradient: "from-[#96A78D] to-[#7E9175]",
+                change:
+                  dashboardData.stats.joinedEvents > 0
+                    ? `${dashboardData.stats.pastEvents} past events`
+                    : "Start joining",
               },
               {
                 label: "Total Spent",
                 value: formatCurrency(dashboardData.stats.totalSpent),
-                icon: DollarSign,
-                gradient: "from-purple-500 to-violet-500",
-                change: dashboardData.stats.joinedEvents > 0 ? `Avg: ${formatCurrency(dashboardData.stats.avgSpending)}` : "No spending yet",
-                chartData: [50, 100, 75, 120, 90, 150, 200],
+                icon: FiDollarSign,
+                gradient: "from-[#D2C1B6] to-[#B8A79C]",
+                change:
+                  dashboardData.stats.succeededPayments > 0
+                    ? `${dashboardData.stats.succeededPayments} payments`
+                    : "No payments yet",
               },
               ...(isHostOrAdmin
                 ? [
                     {
                       label: "Host Earnings",
                       value: formatCurrency(dashboardData.stats.hostEarnings),
-                      icon: TrendingUp,
-                      gradient: "from-amber-500 to-yellow-500",
-                      change: "+12% this month",
-                      chartData: [200, 300, 400, 350, 500, 600, 700],
+                      icon: FiTrendingUp,
+                      gradient: "from-[#9C6A50] to-[#B88C75]",
+                      change: `${dashboardData.stats.completedHostedEvents} completed`,
                     },
                   ]
                 : [
                     {
                       label: "Successful Payments",
                       value: `${dashboardData.stats.succeededPayments}`,
-                      icon: CreditCard,
-                      gradient: "from-emerald-500 to-green-500",
-                      change: dashboardData.stats.pendingPayments > 0 
-                        ? `${dashboardData.stats.pendingPayments} pending` 
-                        : "All clear",
-                      chartData: [dashboardData.stats.succeededPayments, dashboardData.stats.pendingPayments, dashboardData.stats.failedPayments],
+                      icon: FiCreditCard,
+                      gradient: "from-[#234C6A] to-[#96A78D]",
+                      change:
+                        dashboardData.stats.succeededPayments > 0
+                          ? "All completed"
+                          : "No payments yet",
                     },
                   ]),
             ].map((stat, index) => (
@@ -705,55 +811,61 @@ export default function DashboardPage() {
                 key={stat.label}
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 p-6 backdrop-blur-sm transition-all duration-300 hover:border-white/20 hover:scale-[1.02]"
+                className="group relative bg-gradient-to-br from-white/5 to-white/[0.02] shadow-lg backdrop-blur-sm p-6 border border-white/10 hover:border-white/20 rounded-2xl overflow-hidden hover:scale-[1.02] transition-all duration-300"
               >
                 <div className="relative">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className={`p-3 rounded-xl bg-gradient-to-br ${stat.gradient}/20`}>
-                      <stat.icon className="w-6 h-6 text-white" />
+                  <div className="flex justify-between items-start mb-4">
+                    <div
+                      className={`p-3 rounded-xl bg-gradient-to-br ${stat.gradient}/20 shadow-md`}
+                    >
+                      <stat.icon className="text-white text-xl" />
                     </div>
-                    <div className="text-xs px-2 py-1 rounded-full bg-white/10 text-white/70">
+                    <div className="bg-white/10 backdrop-blur-sm px-2 py-1 rounded-full text-white/70 text-xs">
                       {stat.change}
                     </div>
                   </div>
-                  <div className="font-bold text-white text-3xl mb-1">
+                  <div className="mb-1 font-bold text-white text-3xl">
                     {stat.value}
                   </div>
-                  <div className="text-white/70 text-sm mb-4">{stat.label}</div>
-                  <div className="h-16">
-                    <StatsChart data={stat.chartData} color={stat.gradient} />
-                  </div>
+                  <div className="mb-4 text-white/70 text-sm">{stat.label}</div>
                 </div>
+                <div
+                  className={`absolute -bottom-8 -right-8 bg-gradient-to-br ${stat.gradient} opacity-10 w-24 h-24 rounded-full group-hover:scale-125 transition-transform duration-300`}
+                ></div>
               </motion.div>
             ))}
           </motion.div>
 
           <div className="gap-8 grid lg:grid-cols-3">
             <div className="lg:col-span-2">
-              <div className="bg-gradient-to-b from-white/5 to-white/[0.02] border border-white/10 rounded-2xl overflow-hidden backdrop-blur-sm">
-                <div className="border-b border-white/10">
+              <div className="bg-gradient-to-b from-white/5 to-white/[0.02] shadow-xl backdrop-blur-sm border border-white/10 rounded-2xl overflow-hidden">
+                <div className="border-white/10 border-b">
                   <div className="flex overflow-x-auto">
                     {[
-                      { id: "overview", label: "Overview", icon: Activity },
-                      { id: "events", label: "My Events", icon: Calendar },
+                      { id: "overview", label: "Overview", icon: FiGrid },
+                      { id: "events", label: "My Events", icon: FiCalendar },
                       ...(isHostOrAdmin
                         ? [
-                            { id: "hosting", label: "Hosting", icon: Package },
-                            { id: "analytics", label: "Analytics", icon: BarChart3 },
+                            { id: "hosting", label: "Hosting", icon: FiTarget },
+                            {
+                              id: "analytics",
+                              label: "Analytics",
+                              icon: FiBarChart2,
+                            },
                           ]
                         : []),
-                      { id: "payments", label: "Payments", icon: CreditCard },
+                      { id: "payments", label: "Payments", icon: FiDollarSign },
                     ].map((tab) => (
                       <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id as any)}
                         className={`flex items-center gap-2 px-6 py-4 text-sm font-medium whitespace-nowrap border-b-2 transition-all ${
                           activeTab === tab.id
-                            ? "border-cyan-500 text-cyan-400 bg-cyan-500/10"
+                            ? "border-[#96A78D] text-[#D2C1B6] bg-gradient-to-r from-[#234C6A]/20 to-[#96A78D]/20"
                             : "border-transparent text-white/50 hover:text-white hover:bg-white/5"
                         }`}
                       >
-                        <tab.icon className="w-4 h-4" />
+                        <tab.icon />
                         {tab.label}
                       </button>
                     ))}
@@ -763,50 +875,66 @@ export default function DashboardPage() {
                 <div className="p-6">
                   {activeTab === "overview" && (
                     <div className="space-y-8">
-                      {isHostOrAdmin && (
-                        <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-                          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                            <div>
-                              <h3 className="font-bold text-white text-lg mb-1">
-                                Revenue Overview
-                              </h3>
-                              <p className="text-white/60 text-sm">
-                                {timeRange.charAt(0).toUpperCase() + timeRange.slice(1)}ly earnings
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <div className="font-bold text-white text-2xl">
-                                {formatCurrency(dashboardData.stats.hostEarnings)}
+                      {isHostOrAdmin &&
+                        dashboardData.stats.hostEarnings > 0 && (
+                          <div className="bg-white/5 backdrop-blur-sm p-6 border border-white/10 rounded-2xl">
+                            <div className="flex md:flex-row flex-col justify-between items-start md:items-center gap-4 mb-6">
+                              <div>
+                                <h3 className="mb-1 font-bold text-white text-lg">
+                                  Revenue Overview
+                                </h3>
+                                <p className="text-white/60 text-sm">
+                                  {timeRange.charAt(0).toUpperCase() +
+                                    timeRange.slice(1)}
+                                  ly earnings
+                                </p>
                               </div>
-                              <div className="flex items-center text-emerald-400 text-sm">
-                                <TrendingUp className="w-4 h-4 mr-1" />
-                                +12.5% from last {timeRange}
+                              <div className="text-right">
+                                <div className="font-bold text-white text-2xl">
+                                  {formatCurrency(
+                                    dashboardData.stats.hostEarnings
+                                  )}
+                                </div>
+                                <div className="flex items-center text-[#96A78D] text-sm">
+                                  <FiTrendingUp className="mr-1" />
+                                  From{" "}
+                                  {
+                                    dashboardData.stats.completedHostedEvents
+                                  }{" "}
+                                  events
+                                </div>
                               </div>
-                            </div>
-                          </div>
-                          <div className="h-64">
-                            <RevenueChart data={chartData.revenueData} />
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="gap-6 grid grid-cols-1 md:grid-cols-2">
-                        {isHostOrAdmin && (
-                          <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-                            <div className="flex justify-between items-center mb-6">
-                              <h3 className="font-bold text-white">Event Types</h3>
-                              <Filter className="w-4 h-4 text-white/50" />
                             </div>
                             <div className="h-64">
-                              <EventTypeChart data={chartData.typeDistribution} />
+                              <RevenueChart data={chartData.revenueData} />
                             </div>
                           </div>
                         )}
 
-                        <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
+                      <div className="gap-6 grid grid-cols-1 md:grid-cols-2">
+                        {isHostOrAdmin &&
+                          chartData.typeDistribution.length > 0 && (
+                            <div className="bg-white/5 backdrop-blur-sm p-6 border border-white/10 rounded-2xl">
+                              <div className="flex justify-between items-center mb-6">
+                                <h3 className="font-bold text-white">
+                                  Event Types
+                                </h3>
+                                <FiPieChart className="text-white/50" />
+                              </div>
+                              <div className="h-64">
+                                <EventTypeChart
+                                  data={chartData.typeDistribution}
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                        <div className="bg-white/5 backdrop-blur-sm p-6 border border-white/10 rounded-2xl">
                           <div className="flex justify-between items-center mb-6">
-                            <h3 className="font-bold text-white">Activity Timeline</h3>
-                            <Clock className="w-4 h-4 text-white/50" />
+                            <h3 className="font-bold text-white">
+                              Activity Timeline
+                            </h3>
+                            <FiActivity className="text-white/50" />
                           </div>
                           <div className="h-64 overflow-y-auto">
                             <ActivityTimeline data={chartData.activityData} />
@@ -814,20 +942,51 @@ export default function DashboardPage() {
                         </div>
                       </div>
 
-                      <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-                        <h3 className="font-bold text-white mb-6">Quick Stats</h3>
+                      <div className="bg-white/5 backdrop-blur-sm p-6 border border-white/10 rounded-2xl">
+                        <h3 className="mb-6 font-bold text-white">
+                          Quick Stats
+                        </h3>
                         <div className="gap-4 grid grid-cols-2 md:grid-cols-4">
                           {[
-                            { label: "Avg. Rating", value: dashboardData.stats.averageRating, icon: Star },
-                            { label: "Total Reviews", value: dashboardData.stats.totalReviews, icon: MessageSquare },
-                            { label: "Cities Visited", value: "8", icon: MapPin },
-                            { label: "Active Streak", value: "14 days", icon: Zap },
+                            {
+                              label: "Avg. Rating",
+                              value: dashboardData.stats.averageRating || "N/A",
+                              icon: FiStar,
+                              color: "text-[#D2C1B6]",
+                            },
+                            {
+                              label: "Total Reviews",
+                              value: dashboardData.stats.totalReviews,
+                              icon: FiActivity,
+                              color: "text-[#96A78D]",
+                            },
+                            {
+                              label: "Cities Visited",
+                              value: citiesVisited,
+                              icon: FiMapPin,
+                              color: "text-[#234C6A]",
+                            },
+                            {
+                              label: "Active Streak",
+                              value: activeStreak,
+                              icon: FiAward,
+                              color: "text-[#9C6A50]",
+                            },
                           ].map((stat, index) => (
-                            <div key={stat.label} className="text-center">
-                              <div className="font-bold text-white text-2xl mb-1">
+                            <div key={stat.label} className="group text-center">
+                              <div
+                                className={`inline-flex justify-center items-center ${stat.color}/20 mb-2 p-3 rounded-xl group-hover:scale-110 transition-transform`}
+                              >
+                                <stat.icon
+                                  className={`text-xl ${stat.color}`}
+                                />
+                              </div>
+                              <div className="mb-1 font-bold text-white text-2xl">
                                 {stat.value}
                               </div>
-                              <div className="text-white/60 text-sm">{stat.label}</div>
+                              <div className="text-white/60 text-sm">
+                                {stat.label}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -842,65 +1001,56 @@ export default function DashboardPage() {
                           {
                             label: "Conversion Rate",
                             value: `${dashboardData.stats.conversionRate}%`,
-                            icon: TrendingUp,
-                            change: "+5.2%",
-                            color: "text-emerald-400",
+                            icon: FiTrendingUp,
+                            color: "text-[#96A78D]",
                           },
                           {
                             label: "Engagement Rate",
                             value: `${dashboardData.stats.engagementRate}%`,
-                            icon: Users,
-                            change: "+3.8%",
-                            color: "text-cyan-400",
+                            icon: FiUsers,
+                            color: "text-[#D2C1B6]",
                           },
                           {
                             label: "Avg. Rating",
-                            value: dashboardData.stats.averageRating,
-                            icon: Star,
-                            change: "+0.3",
-                            color: "text-amber-400",
+                            value: dashboardData.stats.averageRating || "N/A",
+                            icon: FiStar,
+                            color: "text-[#F5F0EB]",
                           },
                           {
                             label: "Event Completion",
-                            value: "92%",
-                            icon: CheckCircle,
-                            change: "+4%",
-                            color: "text-green-400",
+                            value: `${dashboardData.stats.completedHostedEvents}/${dashboardData.stats.hostedEvents}`,
+                            icon: FiCheckCircle,
+                            color: "text-[#96A78D]",
                           },
                           {
-                            label: "Response Time",
-                            value: "2.4h",
-                            icon: Clock,
-                            change: "-0.5h",
-                            color: "text-blue-400",
+                            label: "Active Events",
+                            value: dashboardData.stats.activeHostedEvents,
+                            icon: FiActivity,
+                            color: "text-[#D2C1B6]",
                           },
                           {
-                            label: "Satisfaction",
-                            value: "94%",
-                            icon: Heart,
-                            change: "+2%",
-                            color: "text-rose-400",
+                            label: "Total Revenue",
+                            value: formatCurrency(
+                              dashboardData.stats.hostEarnings
+                            ),
+                            icon: FiDollarSign,
+                            color: "text-[#F5F0EB]",
                           },
                         ].map((metric, index) => (
                           <div
                             key={metric.label}
-                            className="bg-white/5 rounded-xl p-6 border border-white/10"
+                            className="bg-white/5 backdrop-blur-sm p-6 border border-white/10 hover:border-white/20 rounded-xl transition-all"
                           >
-                            <div className="flex items-center justify-between mb-4">
-                              <div className={`p-2 rounded-lg ${metric.color}/20`}>
-                                <metric.icon className={`w-5 h-5 ${metric.color}`} />
+                            <div className="flex justify-between items-center mb-4">
+                              <div
+                                className={`p-2 rounded-lg ${metric.color}/20`}
+                              >
+                                <metric.icon
+                                  className={`text-xl ${metric.color}`}
+                                />
                               </div>
-                              <span className={`text-sm ${
-                                metric.change.startsWith("+") 
-                                  ? "text-emerald-400" 
-                                  : metric.change.startsWith("-")
-                                  ? "text-rose-400"
-                                  : "text-amber-400"
-                              }`}>
-                                {metric.change}
-                              </span>
                             </div>
-                            <div className="font-bold text-white text-2xl mb-1">
+                            <div className="mb-1 font-bold text-white text-2xl">
                               {metric.value}
                             </div>
                             <div className="text-white/60 text-sm">
@@ -910,8 +1060,8 @@ export default function DashboardPage() {
                         ))}
                       </div>
 
-                      <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                      <div className="bg-white/5 backdrop-blur-sm p-6 border border-white/10 rounded-2xl">
+                        <div className="flex md:flex-row flex-col justify-between items-start md:items-center gap-4 mb-6">
                           <div>
                             <h3 className="font-bold text-white text-lg">
                               Events Comparison
@@ -922,20 +1072,28 @@ export default function DashboardPage() {
                           </div>
                           <div className="flex items-center gap-4">
                             <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full bg-cyan-500"></div>
-                              <span className="text-white/70 text-sm">Joined</span>
+                              <div className="bg-[#234C6A] rounded-full w-3 h-3"></div>
+                              <span className="text-white/70 text-sm">
+                                Joined
+                              </span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
-                              <span className="text-white/70 text-sm">Hosted</span>
+                              <div className="bg-[#96A78D] rounded-full w-3 h-3"></div>
+                              <span className="text-white/70 text-sm">
+                                Hosted
+                              </span>
                             </div>
                           </div>
                         </div>
                         <div className="h-80">
                           <ComparisonChart
                             labels={chartData.statsComparison.labels}
-                            joinedData={chartData.statsComparison.datasets[0].data}
-                            hostedData={chartData.statsComparison.datasets[1].data}
+                            joinedData={
+                              chartData.statsComparison.datasets[0].data
+                            }
+                            hostedData={
+                              chartData.statsComparison.datasets[1].data
+                            }
                           />
                         </div>
                       </div>
@@ -945,18 +1103,21 @@ export default function DashboardPage() {
                   {activeTab === "events" && (
                     <div className="space-y-8">
                       <div>
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                        <div className="flex md:flex-row flex-col justify-between items-start md:items-center gap-4 mb-6">
                           <h2 className="font-bold text-white text-xl">
                             Events You've Joined
                           </h2>
                           <div className="flex items-center gap-3">
-                            <input
-                              type="text"
-                              placeholder="Search events..."
-                              className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:border-cyan-500/50"
-                            />
-                            <button className="p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10">
-                              <Filter className="w-4 h-4 text-white" />
+                            <div className="relative">
+                              <FiSearch className="top-1/2 left-3 absolute text-white/50 -translate-y-1/2 transform" />
+                              <input
+                                type="text"
+                                placeholder="Search events..."
+                                className="bg-white/5 backdrop-blur-sm py-2 pr-4 pl-10 border border-white/10 focus:border-[#96A78D]/50 rounded-xl focus:outline-none text-white placeholder-white/50"
+                              />
+                            </div>
+                            <button className="bg-white/5 hover:bg-white/10 backdrop-blur-sm p-2 border border-white/10 rounded-lg">
+                              <FiFilter className="text-white" />
                             </button>
                           </div>
                         </div>
@@ -966,36 +1127,38 @@ export default function DashboardPage() {
                               <Link
                                 key={event._id}
                                 href={`/events/${event._id}`}
-                                className="group flex items-center gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all"
+                                className="group flex items-center gap-4 bg-white/5 hover:bg-white/10 backdrop-blur-sm p-4 border border-white/10 hover:border-white/20 rounded-xl transition-all"
                               >
                                 <div className="flex-shrink-0">
-                                  <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center">
-                                    <Calendar className="w-6 h-6 text-cyan-400" />
+                                  <div className="flex justify-center items-center bg-gradient-to-br from-[#234C6A]/20 to-[#96A78D]/20 rounded-lg w-12 h-12">
+                                    <FiCalendar className="text-[#D2C1B6] text-xl" />
                                   </div>
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <div className="flex items-center justify-between mb-1">
+                                  <div className="flex justify-between items-center mb-1">
                                     <div className="font-medium text-white truncate">
                                       {event.title}
                                     </div>
-                                    <div className="text-sm font-medium text-cyan-400">
+                                    <div className="font-medium text-[#D2C1B6] text-sm">
                                       {event.joiningFee === 0
                                         ? "Free"
                                         : formatCurrency(event.joiningFee)}
                                     </div>
                                   </div>
-                                  <div className="flex items-center gap-4 text-sm text-white/60">
+                                  <div className="flex items-center gap-4 text-white/60 text-sm">
                                     <span>{formatDate(event.date)}</span>
                                     <span>•</span>
                                     <span>{event.location}</span>
                                     <span>•</span>
-                                    <span className={`capitalize px-2 py-1 rounded-full text-xs ${
-                                      event.status === 'open' 
-                                        ? 'bg-emerald-500/20 text-emerald-400' 
-                                        : event.status === 'completed'
-                                        ? 'bg-amber-500/20 text-amber-400'
-                                        : 'bg-rose-500/20 text-rose-400'
-                                    }`}>
+                                    <span
+                                      className={`capitalize px-2 py-1 rounded-full text-xs ${
+                                        event.status === "open"
+                                          ? "bg-[#96A78D]/20 text-[#96A78D]"
+                                          : event.status === "completed"
+                                          ? "bg-[#9C6A50]/20 text-[#9C6A50]"
+                                          : "bg-[#9C6A50]/20 text-[#D2C1B6]"
+                                      }`}
+                                    >
                                       {event.status}
                                     </span>
                                   </div>
@@ -1005,8 +1168,8 @@ export default function DashboardPage() {
                           </div>
                         ) : (
                           <div className="py-8 text-center">
-                            <div className="inline-flex justify-center items-center mb-4 p-4 bg-white/5 rounded-2xl">
-                              <Heart className="w-8 h-8 text-white/40" />
+                            <div className="inline-flex justify-center items-center bg-white/5 mb-4 p-4 rounded-2xl">
+                              <FiCalendar className="text-white/40 text-2xl" />
                             </div>
                             <h3 className="mb-2 font-bold text-white">
                               No Events Joined
@@ -1016,10 +1179,10 @@ export default function DashboardPage() {
                             </p>
                             <Link
                               href="/events"
-                              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 hover:from-cyan-500/30 hover:to-blue-500/30 border border-cyan-500/50 rounded-xl text-cyan-400 transition-all"
+                              className="inline-flex items-center gap-2 bg-gradient-to-r from-[#234C6A]/20 hover:from-[#234C6A]/30 to-[#96A78D]/20 hover:to-[#96A78D]/30 px-6 py-3 border border-[#96A78D]/50 rounded-xl text-[#D2C1B6] transition-all"
                             >
-                              <Zap className="w-4 h-4" />
-                              Find Events
+                              <FiGlobe />
+                              Find Activities
                             </Link>
                           </div>
                         )}
@@ -1029,33 +1192,53 @@ export default function DashboardPage() {
 
                   {activeTab === "hosting" && isHostOrAdmin && (
                     <div className="space-y-8">
-                      <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-                        <h3 className="font-bold text-white mb-6">Hosting Performance</h3>
+                      <div className="bg-white/5 backdrop-blur-sm p-6 border border-white/10 rounded-2xl">
+                        <h3 className="mb-6 font-bold text-white">
+                          Hosting Performance
+                        </h3>
                         <div className="gap-6 grid grid-cols-1 md:grid-cols-4">
-                          <div className="text-center">
-                            <div className="font-bold text-white text-3xl mb-2">
-                              {dashboardData.stats.activeHostedEvents}
+                          {[
+                            {
+                              label: "Active Events",
+                              value: dashboardData.stats.activeHostedEvents,
+                              icon: FiActivity,
+                              color: "text-[#9C6A50]",
+                            },
+                            {
+                              label: "Completed",
+                              value: dashboardData.stats.completedHostedEvents,
+                              icon: FiCheckCircle,
+                              color: "text-[#96A78D]",
+                            },
+                            {
+                              label: "Total Reviews",
+                              value: dashboardData.stats.totalReviews,
+                              icon: FiStar,
+                              color: "text-[#D2C1B6]",
+                            },
+                            {
+                              label: "Avg. Rating",
+                              value: dashboardData.stats.averageRating || "N/A",
+                              icon: FiAward,
+                              color: "text-[#234C6A]",
+                            },
+                          ].map((stat, index) => (
+                            <div key={stat.label} className="text-center">
+                              <div
+                                className={`inline-flex justify-center items-center ${stat.color}/20 mb-2 p-3 rounded-xl`}
+                              >
+                                <stat.icon
+                                  className={`text-xl ${stat.color}`}
+                                />
+                              </div>
+                              <div className="mb-1 font-bold text-white text-2xl">
+                                {stat.value}
+                              </div>
+                              <div className="text-white/60 text-sm">
+                                {stat.label}
+                              </div>
                             </div>
-                            <div className="text-white/60">Active Events</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="font-bold text-white text-3xl mb-2">
-                              {dashboardData.stats.completedHostedEvents}
-                            </div>
-                            <div className="text-white/60">Completed</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="font-bold text-white text-3xl mb-2">
-                              {dashboardData.stats.totalReviews}
-                            </div>
-                            <div className="text-white/60">Total Reviews</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="font-bold text-white text-3xl mb-2">
-                              {dashboardData.stats.averageRating}
-                            </div>
-                            <div className="text-white/60">Avg. Rating</div>
-                          </div>
+                          ))}
                         </div>
                       </div>
 
@@ -1066,9 +1249,9 @@ export default function DashboardPage() {
                           </h2>
                           <Link
                             href="/events/create"
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 hover:from-cyan-500/30 hover:to-blue-500/30 border border-cyan-500/50 rounded-xl text-cyan-400 text-sm"
+                            className="inline-flex items-center gap-2 bg-gradient-to-r from-[#234C6A]/20 hover:from-[#234C6A]/30 to-[#96A78D]/20 hover:to-[#96A78D]/30 px-4 py-2 border border-[#96A78D]/50 rounded-xl text-[#D2C1B6] text-sm"
                           >
-                            <Plus className="w-4 h-4" />
+                            <FiPlus />
                             New Event
                           </Link>
                         </div>
@@ -1081,8 +1264,8 @@ export default function DashboardPage() {
                           </div>
                         ) : (
                           <div className="py-8 text-center">
-                            <div className="inline-flex justify-center items-center mb-4 p-4 bg-white/5 rounded-2xl">
-                              <Package className="w-8 h-8 text-white/40" />
+                            <div className="inline-flex justify-center items-center bg-white/5 mb-4 p-4 rounded-2xl">
+                              <FiTarget className="text-white/40 text-2xl" />
                             </div>
                             <h3 className="mb-2 font-bold text-white">
                               No Active Events
@@ -1098,7 +1281,7 @@ export default function DashboardPage() {
 
                   {activeTab === "payments" && (
                     <div>
-                      <PaymentHistoryComponent userId={user?.id} />
+                      <PaymentHistoryComponent />
                     </div>
                   )}
                 </div>
@@ -1106,9 +1289,9 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-8">
-              <div className="bg-gradient-to-b from-white/5 to-white/[0.02] border border-white/10 rounded-2xl p-6 backdrop-blur-sm">
+              <div className="bg-gradient-to-b from-white/5 to-white/[0.02] shadow-xl backdrop-blur-sm p-6 border border-white/10 rounded-2xl">
                 <div className="flex items-center gap-4 mb-6">
-                  <div className="w-16 h-16 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center">
+                  <div className="flex justify-center items-center bg-gradient-to-r from-[#234C6A] to-[#96A78D] shadow-lg rounded-full w-16 h-16">
                     <span className="font-bold text-white text-2xl">
                       {user?.name?.charAt(0).toUpperCase()}
                     </span>
@@ -1117,9 +1300,10 @@ export default function DashboardPage() {
                     <div className="font-bold text-white">{user?.name}</div>
                     <div className="text-white/60 text-sm">{user?.email}</div>
                     <div className="flex items-center gap-2 mt-1">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      <span className="text-xs text-white/50">
-                        {user?.role?.charAt(0).toUpperCase() + user?.role?.slice(1)}
+                      <div className="bg-[#96A78D] rounded-full w-2 h-2 animate-pulse"></div>
+                      <span className="text-white/50 text-xs">
+                        {user?.role?.charAt(0).toUpperCase() +
+                          user?.role?.slice(1)}
                       </span>
                     </div>
                   </div>
@@ -1127,80 +1311,89 @@ export default function DashboardPage() {
                 <div className="space-y-3">
                   <Link
                     href={`/profile/${user?.id}`}
-                    className="flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-all"
+                    className="flex justify-between items-center bg-white/5 hover:bg-white/10 p-3 rounded-lg transition-all"
                   >
                     <span className="text-white">View Profile</span>
-                    <ExternalLink className="w-4 h-4 text-white/50" />
+                    <FiGlobe className="text-white/50" />
                   </Link>
                   <Link
                     href="/settings"
-                    className="flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-all"
+                    className="flex justify-between items-center bg-white/5 hover:bg-white/10 p-3 rounded-lg transition-all"
                   >
                     <span className="text-white">Settings</span>
-                    <Settings className="w-4 h-4 text-white/50" />
+                    <FiSettings className="text-white/50" />
                   </Link>
                   <button
                     onClick={handleLogout}
-                    className="flex items-center justify-between w-full p-3 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-all"
+                    className="flex justify-between items-center bg-gradient-to-r from-[#9C6A50]/10 hover:from-[#9C6A50]/20 to-[#D2C1B6]/10 hover:to-[#D2C1B6]/20 p-3 rounded-lg w-full text-[#D2C1B6] transition-all"
                   >
                     <span>Logout</span>
-                    <AlertCircle className="w-4 h-4" />
+                    <FiLogOut />
                   </button>
                 </div>
               </div>
 
-              {dashboardData.notifications && dashboardData.notifications.length > 0 && (
-                <div className="bg-gradient-to-b from-white/5 to-white/[0.02] border border-white/10 rounded-2xl p-6 backdrop-blur-sm">
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="font-bold text-white">Notifications</h3>
-                    <Bell className="w-5 h-5 text-white/50" />
-                  </div>
-                  <div className="space-y-4">
-                    {dashboardData.notifications.slice(0, 3).map((notification: any, index: number) => (
-                      <div
-                        key={index}
-                        className="p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-all"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="p-2 rounded-lg bg-cyan-500/20">
-                            <Bell className="w-4 h-4 text-cyan-400" />
-                          </div>
-                          <div className="flex-1">
-                            <div className="text-white text-sm">{notification.message}</div>
-                            <div className="text-white/40 text-xs mt-1">
-                              {new Date(notification.createdAt).toLocaleTimeString([], { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                              })}
+              {dashboardData.notifications &&
+                dashboardData.notifications.length > 0 && (
+                  <div className="bg-gradient-to-b from-white/5 to-white/[0.02] shadow-xl backdrop-blur-sm p-6 border border-white/10 rounded-2xl">
+                    <div className="flex justify-between items-center mb-6">
+                      <h3 className="font-bold text-white">Notifications</h3>
+                      <FiBell className="text-white/50" />
+                    </div>
+                    <div className="space-y-4">
+                      {dashboardData.notifications
+                        .slice(0, 3)
+                        .map((notification: any, index: number) => (
+                          <div
+                            key={index}
+                            className="bg-white/5 hover:bg-white/10 p-3 rounded-lg transition-all"
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="bg-[#234C6A]/20 p-2 rounded-lg">
+                                <FiBell className="text-[#96A78D]" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="text-white text-sm">
+                                  {notification.message}
+                                </div>
+                                <div className="mt-1 text-white/40 text-xs">
+                                  {new Date(
+                                    notification.createdAt
+                                  ).toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </div>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </div>
-                    ))}
+                        ))}
+                    </div>
+                    <Link
+                      href="/notifications"
+                      className="block mt-4 text-[#D2C1B6] hover:text-[#F5F0EB] text-sm text-center"
+                    >
+                      View all notifications
+                    </Link>
                   </div>
-                  <Link
-                    href="/notifications"
-                    className="block text-center mt-4 text-cyan-400 hover:text-cyan-300 text-sm"
-                  >
-                    View all notifications
-                  </Link>
-                </div>
-              )}
+                )}
 
-              <div className="bg-gradient-to-b from-amber-500/10 to-yellow-500/10 border border-amber-500/20 rounded-2xl p-6 backdrop-blur-sm">
+              <div className="bg-gradient-to-b from-[#9C6A50]/10 to-[#D2C1B6]/10 shadow-xl backdrop-blur-sm p-6 border border-[#9C6A50]/20 rounded-2xl">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 rounded-lg bg-amber-500/20">
-                    <HelpCircle className="w-5 h-5 text-amber-400" />
+                  <div className="bg-[#9C6A50]/20 p-2 rounded-lg">
+                    <FiHelpCircle className="text-[#D2C1B6] text-xl" />
                   </div>
                   <h3 className="font-bold text-white">Need Help?</h3>
                 </div>
-                <p className="text-white/80 text-sm mb-4">
-                  Having trouble with your dashboard or events? Our support team is here to help.
+                <p className="mb-4 text-white/80 text-sm">
+                  Having trouble with your dashboard or events? Our support team
+                  is here to help.
                 </p>
                 <Link
                   href="/help"
-                  className="inline-block w-full text-center py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 rounded-xl text-amber-400 transition-all"
+                  className="inline-flex justify-center items-center gap-2 bg-[#9C6A50]/20 hover:bg-[#9C6A50]/30 py-2 border border-[#9C6A50]/30 rounded-xl w-full text-[#D2C1B6] text-center transition-all"
                 >
+                  <FiHelpCircle />
                   Get Help
                 </Link>
               </div>
@@ -1211,11 +1404,11 @@ export default function DashboardPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="mt-8 bg-gradient-to-r from-cyan-500/10 via-blue-500/10 to-purple-500/10 border border-cyan-500/20 rounded-2xl p-6 backdrop-blur-sm"
+            className="bg-gradient-to-r from-[#234C6A]/10 via-[#96A78D]/10 to-[#D2C1B6]/10 shadow-xl backdrop-blur-sm mt-8 p-6 border border-[#96A78D]/20 rounded-2xl"
           >
-            <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+            <div className="flex md:flex-row flex-col justify-between items-center gap-6">
               <div>
-                <h3 className="font-bold text-white text-lg mb-2">
+                <h3 className="mb-2 font-bold text-white text-lg">
                   Ready to host your own event?
                 </h3>
                 <p className="text-white/70">
@@ -1225,13 +1418,14 @@ export default function DashboardPage() {
               <div className="flex gap-4">
                 <Link
                   href="/events/create"
-                  className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 rounded-xl text-white font-medium transition-all"
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-[#234C6A] hover:from-[#2E5A7A] to-[#96A78D] hover:to-[#7E9175] shadow-lg px-6 py-3 rounded-xl font-medium text-white transition-all"
                 >
+                  <FiPlus />
                   Create Event
                 </Link>
                 <Link
                   href="/learn-hosting"
-                  className="px-6 py-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl text-white transition-all"
+                  className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 px-6 py-3 border border-white/20 rounded-xl text-white transition-all"
                 >
                   Learn More
                 </Link>

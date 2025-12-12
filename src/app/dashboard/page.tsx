@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useRouter } from "next/navigation";
 import { DashboardData } from "@/types/dashboard";
 import EventCard from "@/components/events/EventCard";
 import Link from "next/link";
@@ -15,40 +16,71 @@ import {
 } from "@/components/charts/DashboardChart";
 import toast, { Toaster } from "react-hot-toast";
 import {
-  FiCalendar,
-  FiUsers,
-  FiDollarSign,
-  FiTrendingUp,
-  FiBell,
-  FiSettings,
-  FiHelpCircle,
-  FiLogOut,
-  FiPlus,
-  FiSearch,
-  FiFilter,
-  FiDownload,
-  FiShare2,
-  FiStar,
-  FiMapPin,
-  FiActivity,
-  FiCreditCard,
-  FiCheckCircle,
-  FiAlertCircle,
-  FiRefreshCw,
-  FiGrid,
-  FiPieChart,
-  FiBarChart2,
-  FiTarget,
-  FiAward,
-  FiGlobe,
-  FiDatabase,
-  FiLayers,
-  FiUserCheck,
-  FiUserX,
-} from "react-icons/fi";
+  Award,
+  CheckCircle,
+  Clock,
+  AlertCircle,
+  ArrowRight,
+  Users,
+  Calendar,
+  DollarSign,
+  Shield,
+  Star,
+  Zap,
+  Globe,
+  TrendingUp,
+  Heart,
+  MapPin,
+  BookOpen,
+  Grid,
+  Search,
+  Download,
+  Share2,
+  Plus,
+  UserCheck,
+  RefreshCw,
+  AlertTriangle,
+  Activity,
+  Target,
+  Layers,
+  PieChart,
+  BarChart2,
+  Database,
+  Filter,
+  Settings,
+  LogOut,
+  HelpCircle,
+  Grid as FiGrid,
+  Search as FiSearch,
+  Download as FiDownload,
+  Share2 as FiShare2,
+  Plus as FiPlus,
+  UserCheck as FiUserCheck,
+  RefreshCw as FiRefreshCw,
+  AlertTriangle as FiAlertTriangle,
+  Award as FiAward,
+  CheckCircle as FiCheckCircle,
+  Clock as FiClock,
+  Users as FiUsers,
+  Calendar as FiCalendar,
+  TrendingUp as FiTrendingUp,
+  Star as FiStar,
+  MapPin as FiMapPin,
+  Activity as FiActivity,
+  Target as FiTarget,
+  Layers as FiLayers,
+  PieChart as FiPieChart,
+  BarChart2 as FiBarChart2,
+  Database as FiDatabase,
+  Filter as FiFilter,
+  Settings as FiSettings,
+  LogOut as FiLogOut,
+  HelpCircle as FiHelpCircle
+} from 'lucide-react';
 
 export default function DashboardPage() {
   const { user, logout } = useAuth();
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(
@@ -69,7 +101,40 @@ export default function DashboardPage() {
     totalAdmins: 0,
     verifiedUsers: 0,
     bannedUsers: 0,
+    pendingHostRequests: 0,
+    approvedHostRequests: 0,
   });
+  const [hostStatus, setHostStatus] = useState<{
+    isHost: boolean;
+    currentRole: string;
+    hostRequest: any;
+  } | null>(null);
+
+  useEffect(() => {
+    const fetchHostStatus = async () => {
+      if (!user || user.role === 'admin') return;
+      
+      try {
+        const token = localStorage.getItem("token") || "";
+        const response = await fetch('http://localhost:5000/api/host/status', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+          setHostStatus(data.data);
+        }
+      } catch (err) {
+        console.error('Error fetching host status:', err);
+      }
+    };
+
+    if (user) {
+      fetchHostStatus();
+    }
+  }, [user]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -117,6 +182,8 @@ export default function DashboardPage() {
           totalAdmins: 0,
           verifiedUsers: 0,
           bannedUsers: 0,
+          pendingHostRequests: 0,
+          approvedHostRequests: 0,
         };
         
         if (user?.role === "admin") {
@@ -157,6 +224,25 @@ export default function DashboardPage() {
                 adminStatsData.totalEvents = allEventsData.data?.events?.length || 0;
               }
             }
+
+            const hostRequestsResponse = await fetch(
+              'http://localhost:5000/api/host/requests',
+              {
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                }
+              }
+            );
+
+            if (hostRequestsResponse.ok) {
+              const hostRequestsData = await hostRequestsResponse.json();
+              if (hostRequestsData.success) {
+                adminStatsData.pendingHostRequests = hostRequestsData.data?.requests?.length || 0;
+              }
+            }
+
+            adminStatsData.approvedHostRequests = adminStatsData.totalHosts;
+
           } catch (adminError) {
             console.warn("Could not fetch admin stats:", adminError);
           }
@@ -233,6 +319,8 @@ export default function DashboardPage() {
           totalAdmins: adminStatsData.totalAdmins,
           verifiedUsers: adminStatsData.verifiedUsers,
           bannedUsers: adminStatsData.bannedUsers,
+          pendingHostRequests: adminStatsData.pendingHostRequests,
+          approvedHostRequests: adminStatsData.approvedHostRequests,
         };
 
         const chartData = generateChartData(
@@ -259,7 +347,7 @@ export default function DashboardPage() {
         toast.error(
           <div className="flex items-center gap-3">
             <div className="bg-[#9C6A50]/20 p-2 rounded-lg">
-              <FiAlertCircle className="text-[#9C6A50] text-xl" />
+              <AlertTriangle className="text-[#9C6A50] text-xl" />
             </div>
             <div>
               <p className="font-medium text-[#F5F0EB]">Dashboard Error</p>
@@ -443,7 +531,7 @@ export default function DashboardPage() {
     toast.success(
       <div className="flex items-center gap-3">
         <div className="bg-[#96A78D]/20 p-2 rounded-lg">
-          <FiCheckCircle className="text-[#96A78D] text-xl" />
+          <CheckCircle className="text-[#96A78D] text-xl" />
         </div>
         <div>
           <p className="font-medium text-[#F5F0EB]">Logged out successfully</p>
@@ -461,7 +549,7 @@ export default function DashboardPage() {
     toast.success(
       <div className="flex items-center gap-3">
         <div className="bg-[#96A78D]/20 p-2 rounded-lg">
-          <FiDownload className="text-[#96A78D] text-xl" />
+          <Download className="text-[#96A78D] text-xl" />
         </div>
         <div>
           <p className="font-medium text-[#F5F0EB]">Data exported</p>
@@ -488,7 +576,7 @@ export default function DashboardPage() {
       toast.success(
         <div className="flex items-center gap-3">
           <div className="bg-[#96A78D]/20 p-2 rounded-lg">
-            <FiShare2 className="text-[#96A78D] text-xl" />
+            <Share2 className="text-[#96A78D] text-xl" />
           </div>
           <div>
             <p className="font-medium text-[#F5F0EB]">Link copied</p>
@@ -505,40 +593,38 @@ export default function DashboardPage() {
     }
   };
 
-  const handleRoleChange = async (userId: string, newRole: string) => {
+  const handleRequestToBecomeHost = async (reason: string) => {
     try {
       const token = localStorage.getItem("token") || "";
-      const response = await fetch(`http://localhost:5000/api/users/${userId}/role`, {
-        method: 'PATCH',
+      const response = await fetch('http://localhost:5000/api/host/request', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ role: newRole })
+        body: JSON.stringify({ reason })
       });
 
       const data = await response.json();
       
       if (data.success) {
-        setAdminStats(prev => {
-          const updatedStats = { ...prev };
-          if (newRole === 'host') {
-            updatedStats.totalHosts += 1;
-          } else if (newRole === 'admin') {
-            updatedStats.totalAdmins += 1;
-          }
-          return updatedStats;
+        const statusResponse = await fetch('http://localhost:5000/api/host/status', {
+          headers: { 'Authorization': `Bearer ${token}` }
         });
+        const statusData = await statusResponse.json();
+        if (statusData.success) {
+          setHostStatus(statusData.data);
+        }
 
         toast.success(
           <div className="flex items-center gap-3">
             <div className="bg-[#96A78D]/20 p-2 rounded-lg">
-              <FiCheckCircle className="text-[#96A78D] text-xl" />
+              <CheckCircle className="text-[#96A78D] text-xl" />
             </div>
             <div>
-              <p className="font-medium text-[#F5F0EB]">Role Updated</p>
+              <p className="font-medium text-[#F5F0EB]">Request Submitted</p>
               <p className="text-[#D2C1B6]/70 text-sm">
-                User role changed to {newRole}
+                Your host request is under review
               </p>
             </div>
           </div>,
@@ -548,18 +634,18 @@ export default function DashboardPage() {
           }
         );
       } else {
-        throw new Error(data.message || 'Failed to update role');
+        throw new Error(data.message || 'Failed to submit request');
       }
     } catch (err: any) {
       toast.error(
         <div className="flex items-center gap-3">
           <div className="bg-[#9C6A50]/20 p-2 rounded-lg">
-            <FiAlertCircle className="text-[#9C6A50] text-xl" />
+            <AlertTriangle className="text-[#9C6A50] text-xl" />
           </div>
           <div>
-            <p className="font-medium text-[#F5F0EB]">Update Failed</p>
+            <p className="font-medium text-[#F5F0EB]">Request Failed</p>
             <p className="text-[#D2C1B6]/70 text-sm">
-              {err.message || 'Failed to update user role'}
+              {err.message || 'Failed to submit host request'}
             </p>
           </div>
         </div>,
@@ -571,20 +657,18 @@ export default function DashboardPage() {
     }
   };
 
-  const handleBanToggle = async (userId: string, currentStatus: boolean) => {
-    if (!confirm(`Are you sure you want to ${currentStatus ? 'unban' : 'ban'} this user?`)) {
+  const handleApproveHostRequest = async (userId: string) => {
+    if (!confirm('Are you sure you want to approve this host request?')) {
       return;
     }
 
     try {
       const token = localStorage.getItem("token") || "";
-      const response = await fetch(`http://localhost:5000/api/admin/users/${userId}/ban`, {
-        method: 'PATCH',
+      const response = await fetch(`http://localhost:5000/api/host/approve/${userId}`, {
+        method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ banned: !currentStatus })
+        }
       });
 
       const data = await response.json();
@@ -592,20 +676,20 @@ export default function DashboardPage() {
       if (data.success) {
         setAdminStats(prev => ({
           ...prev,
-          bannedUsers: currentStatus ? prev.bannedUsers - 1 : prev.bannedUsers + 1
+          totalHosts: prev.totalHosts + 1,
+          pendingHostRequests: prev.pendingHostRequests - 1,
+          approvedHostRequests: prev.approvedHostRequests + 1
         }));
 
         toast.success(
           <div className="flex items-center gap-3">
-            <div className={`${currentStatus ? 'bg-[#96A78D]' : 'bg-[#9C6A50]'}/20 p-2 rounded-lg`}>
-              <FiCheckCircle className={`${currentStatus ? 'text-[#96A78D]' : 'text-[#9C6A50]'} text-xl`} />
+            <div className="bg-[#96A78D]/20 p-2 rounded-lg">
+              <UserCheck className="text-[#96A78D] text-xl" />
             </div>
             <div>
-              <p className="font-medium text-[#F5F0EB]">
-                User {currentStatus ? 'Unbanned' : 'Banned'}
-              </p>
+              <p className="font-medium text-[#F5F0EB]">Host Request Approved</p>
               <p className="text-[#D2C1B6]/70 text-sm">
-                {currentStatus ? 'User can now access the platform' : 'User access has been restricted'}
+                User is now a host
               </p>
             </div>
           </div>,
@@ -615,18 +699,18 @@ export default function DashboardPage() {
           }
         );
       } else {
-        throw new Error(data.message || 'Failed to update user status');
+        throw new Error(data.message || 'Failed to approve request');
       }
     } catch (err: any) {
       toast.error(
         <div className="flex items-center gap-3">
           <div className="bg-[#9C6A50]/20 p-2 rounded-lg">
-            <FiAlertCircle className="text-[#9C6A50] text-xl" />
+            <AlertTriangle className="text-[#9C6A50] text-xl" />
           </div>
           <div>
-            <p className="font-medium text-[#F5F0EB]">Action Failed</p>
+            <p className="font-medium text-[#F5F0EB]">Approval Failed</p>
             <p className="text-[#D2C1B6]/70 text-sm">
-              {err.message || 'Failed to update user status'}
+              {err.message || 'Failed to approve host request'}
             </p>
           </div>
         </div>,
@@ -638,67 +722,76 @@ export default function DashboardPage() {
     }
   };
 
-  const handleVerifyToggle = async (userId: string, currentStatus: boolean) => {
-    try {
-      const token = localStorage.getItem("token") || "";
-      const response = await fetch(`http://localhost:5000/api/admin/users/${userId}/verify`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ verified: !currentStatus })
-      });
+  const renderHostStatusBanner = () => {
+    if (user?.role === 'admin') return null;
 
-      const data = await response.json();
-      
-      if (data.success) {
-        setAdminStats(prev => ({
-          ...prev,
-          verifiedUsers: currentStatus ? prev.verifiedUsers - 1 : prev.verifiedUsers + 1
-        }));
-
-        toast.success(
+    if (hostStatus?.isHost) {
+      return (
+        <div className="bg-gradient-to-r from-[#96A78D]/20 to-[#7E9175]/20 backdrop-blur-sm mb-6 p-4 border border-[#96A78D]/30 rounded-xl">
           <div className="flex items-center gap-3">
-            <div className={`${!currentStatus ? 'bg-[#96A78D]' : 'bg-[#D2C1B6]'}/20 p-2 rounded-lg`}>
-              <FiCheckCircle className={`${!currentStatus ? 'text-[#96A78D]' : 'text-[#D2C1B6]'} text-xl`} />
+            <div className="bg-[#96A78D]/20 p-2 rounded-lg">
+              <Award className="text-[#96A78D] text-xl" />
             </div>
             <div>
-              <p className="font-medium text-[#F5F0EB]">
-                User {!currentStatus ? 'Verified' : 'Unverified'}
-              </p>
-              <p className="text-[#D2C1B6]/70 text-sm">
-                {!currentStatus ? 'User verification completed' : 'User verification removed'}
+              <h3 className="font-bold text-white">You are a Host! 🎉</h3>
+              <p className="text-white/80 text-sm">
+                You can now create and manage events. Start your hosting journey!
               </p>
             </div>
-          </div>,
-          {
-            duration: 3000,
-            position: "top-right",
-          }
-        );
-      } else {
-        throw new Error(data.message || 'Failed to update verification');
-      }
-    } catch (err: any) {
-      toast.error(
-        <div className="flex items-center gap-3">
-          <div className="bg-[#9C6A50]/20 p-2 rounded-lg">
-            <FiAlertCircle className="text-[#9C6A50] text-xl" />
+            <Link
+              href="/events/create"
+              className="bg-gradient-to-r from-[#96A78D] hover:from-[#7E9175] to-[#234C6A] hover:to-[#2E5A7A] ml-auto px-4 py-2 rounded-lg font-medium text-white text-sm"
+            >
+              Create Event
+            </Link>
           </div>
-          <div>
-            <p className="font-medium text-[#F5F0EB]">Action Failed</p>
-            <p className="text-[#D2C1B6]/70 text-sm">
-              {err.message || 'Failed to update verification'}
-            </p>
-          </div>
-        </div>,
-        {
-          duration: 4000,
-          position: "top-right",
-        }
+        </div>
       );
     }
+
+    if (hostStatus?.hostRequest?.status === 'pending') {
+      return (
+        <div className="bg-gradient-to-r from-[#D2C1B6]/20 to-[#B8A79C]/20 backdrop-blur-sm mb-6 p-4 border border-[#D2C1B6]/30 rounded-xl">
+          <div className="flex items-center gap-3">
+            <div className="bg-[#D2C1B6]/20 p-2 rounded-lg">
+              <Clock className="text-[#D2C1B6] text-xl" />
+            </div>
+            <div>
+              <h3 className="font-bold text-white">Host Request Pending ⏳</h3>
+              <p className="text-white/80 text-sm">
+                Your request is under review. We'll notify you once approved.
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (user?.role === 'user') {
+      return (
+        <div className="bg-gradient-to-r from-[#234C6A]/20 to-[#96A78D]/20 backdrop-blur-sm mb-6 p-4 border border-[#96A78D]/30 rounded-xl">
+          <div className="flex items-center gap-3">
+            <div className="bg-[#234C6A]/20 p-2 rounded-lg">
+              <Award className="text-[#96A78D] text-xl" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-white">Become a Host</h3>
+              <p className="text-white/80 text-sm">
+                Share your passion and earn money by hosting events
+              </p>
+            </div>
+            <Link
+              href="/become-host"
+              className="bg-gradient-to-r from-[#234C6A] hover:from-[#2E5A7A] to-[#96A78D] hover:to-[#7E9175] ml-auto px-4 py-2 rounded-lg font-medium text-white text-sm"
+            >
+              Apply Now
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
   };
 
   if (loading) {
@@ -752,7 +845,7 @@ export default function DashboardPage() {
           <div className="mx-auto px-4 max-w-7xl">
             <div className="py-12 text-center">
               <div className="inline-flex justify-center items-center bg-gradient-to-r from-[#9C6A50]/20 to-[#D2C1B6]/20 mb-4 border border-[#9C6A50]/30 rounded-full w-16 h-16">
-                <FiAlertCircle className="text-[#9C6A50] text-2xl" />
+                <AlertTriangle className="text-[#9C6A50] text-2xl" />
               </div>
               <h2 className="bg-clip-text bg-gradient-to-r from-[#F5F0EB] via-[#D2C1B6] to-[#9C6A50] mb-2 font-bold text-transparent text-2xl">
                 Error Loading Dashboard
@@ -763,7 +856,7 @@ export default function DashboardPage() {
                   onClick={() => window.location.reload()}
                   className="flex items-center gap-2 bg-gradient-to-r from-[#234C6A]/20 hover:from-[#234C6A]/30 to-[#96A78D]/20 hover:to-[#96A78D]/30 px-6 py-3 border border-[#96A78D]/50 rounded-xl text-[#96A78D] transition-all"
                 >
-                  <FiRefreshCw />
+                  <RefreshCw />
                   Try Again
                 </button>
                 <Link
@@ -786,6 +879,7 @@ export default function DashboardPage() {
 
   const isHostOrAdmin = user?.role === "host" || user?.role === "admin";
   const isAdmin = user?.role === "admin";
+  const isUser = user?.role === "user";
   const citiesVisited = new Set(
     dashboardData.recentEvents
       .map((event: any) => event.location)
@@ -814,7 +908,7 @@ export default function DashboardPage() {
               <div>
                 <div className="flex items-center gap-3 mb-2">
                   <div className="bg-gradient-to-r from-[#234C6A] to-[#96A78D] shadow-lg p-2 rounded-xl">
-                    <FiGrid className="text-white text-xl" />
+                    <Grid className="text-white text-xl" />
                   </div>
                   <div>
                     <h1 className="bg-clip-text bg-gradient-to-r from-white via-[#D2C1B6] to-[#F5F0EB] font-bold text-transparent text-3xl">
@@ -826,6 +920,7 @@ export default function DashboardPage() {
                         {user?.name}
                       </span>
                       {isAdmin && " (Administrator)"}
+                      {isHostOrAdmin && !isAdmin && " (Host)"}
                     </p>
                   </div>
                 </div>
@@ -834,7 +929,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-4">
                 <div className="hidden md:block relative">
                   <div className="left-0 absolute inset-y-0 flex items-center pl-3 pointer-events-none">
-                    <FiSearch className="text-[#F5F0EB]/50" />
+                    <Search className="text-[#F5F0EB]/50" />
                   </div>
                   <input
                     type="text"
@@ -859,6 +954,9 @@ export default function DashboardPage() {
                     <div className="text-[#F5F0EB]/60 text-xs">
                       {user?.email}
                     </div>
+                    <div className="text-[#96A78D] text-xs">
+                      {user?.role?.toUpperCase()}
+                    </div>
                   </div>
                 </Link>
               </div>
@@ -867,6 +965,8 @@ export default function DashboardPage() {
         </div>
 
         <div className="mx-auto px-4 py-8 max-w-7xl">
+          {renderHostStatusBanner()}
+
           <div className="flex md:flex-row flex-col justify-between items-start md:items-center gap-4 mb-8">
             <div className="inline-flex bg-white/5 backdrop-blur-sm p-1 rounded-lg">
               {["week", "month", "year"].map((range) => (
@@ -889,14 +989,14 @@ export default function DashboardPage() {
                 onClick={exportData}
                 className="flex items-center gap-2 bg-white/5 hover:bg-white/10 backdrop-blur-sm px-4 py-2 border border-white/10 rounded-xl text-white transition-all"
               >
-                <FiDownload />
+                <Download />
                 <span className="hidden sm:inline">Export</span>
               </button>
               <button
                 onClick={shareDashboard}
                 className="flex items-center gap-2 bg-white/5 hover:bg-white/10 backdrop-blur-sm px-4 py-2 border border-white/10 rounded-xl text-white transition-all"
               >
-                <FiShare2 />
+                <Share2 />
                 <span className="hidden sm:inline">Share</span>
               </button>
               {isHostOrAdmin && (
@@ -904,17 +1004,26 @@ export default function DashboardPage() {
                   href="/events/create"
                   className="flex items-center gap-2 bg-gradient-to-r from-[#234C6A]/30 hover:from-[#234C6A]/40 to-[#96A78D]/30 hover:to-[#96A78D]/40 px-4 py-2 border border-[#96A78D]/50 rounded-xl text-[#D2C1B6] transition-all"
                 >
-                  <FiPlus />
+                  <Plus />
                   <span className="hidden sm:inline">Create Event</span>
                 </Link>
               )}
               {isAdmin && (
                 <Link
-                  href="/admin/users"
-                  className="flex items-center gap-2 bg-gradient-to-r from-[#9C6A50]/30 hover:from-[#9C6A50]/40 to-[#D2C1B6]/30 hover:to-[#D2C1B6]/40 px-4 py-2 border border-[#D2C1B6]/50 rounded-xl text-[#F5F0EB] transition-all"
+                  href="/admin/host-requests"
+                  className="flex items-center gap-2 bg-gradient-to-r from-[#D2C1B6]/30 hover:from-[#D2C1B6]/40 to-[#9C6A50]/30 hover:to-[#9C6A50]/40 px-4 py-2 border border-[#D2C1B6]/50 rounded-xl text-[#F5F0EB] transition-all"
                 >
-                  <FiUsers />
-                  <span className="hidden sm:inline">Manage Users</span>
+                  <UserCheck />
+                  <span className="hidden sm:inline">Host Requests</span>
+                </Link>
+              )}
+              {isUser && !hostStatus?.isHost && !hostStatus?.hostRequest && (
+                <Link
+                  href="/become-host"
+                  className="flex items-center gap-2 bg-gradient-to-r from-[#234C6A]/30 hover:from-[#234C6A]/40 to-[#96A78D]/30 hover:to-[#96A78D]/40 px-4 py-2 border border-[#96A78D]/50 rounded-xl text-[#D2C1B6] transition-all"
+                >
+                  <Award />
+                  <span className="hidden sm:inline">Become Host</span>
                 </Link>
               )}
             </div>
@@ -930,30 +1039,30 @@ export default function DashboardPage() {
               {
                 label: "Total Users",
                 value: adminStats.totalUsers.toString(),
-                icon: FiUsers,
+                icon: Users,
                 gradient: "from-[#9C6A50] to-[#B88C75]",
                 change: `${adminStats.verifiedUsers} verified`,
               },
               {
-                label: "Total Events",
-                value: adminStats.totalEvents.toString(),
-                icon: FiLayers,
-                gradient: "from-[#234C6A] to-[#2E5A7A]",
-                change: `${adminStats.totalHosts} hosts`,
+                label: "Pending Host Requests",
+                value: adminStats.pendingHostRequests.toString(),
+                icon: Clock,
+                gradient: "from-[#D2C1B6] to-[#B8A79C]",
+                change: `${adminStats.approvedHostRequests} approved`,
               },
               {
-                label: "Hosts",
+                label: "Total Hosts",
                 value: adminStats.totalHosts.toString(),
-                icon: FiTarget,
+                icon: Target,
                 gradient: "from-[#96A78D] to-[#7E9175]",
                 change: `${adminStats.totalAdmins} admins`,
               },
               {
-                label: "Banned Users",
-                value: adminStats.bannedUsers.toString(),
-                icon: FiUserX,
-                gradient: "from-[#D2C1B6] to-[#B8A79C]",
-                change: `${adminStats.verifiedUsers} verified`,
+                label: "Total Events",
+                value: adminStats.totalEvents.toString(),
+                icon: Layers,
+                gradient: "from-[#234C6A] to-[#2E5A7A]",
+                change: `${adminStats.totalUsers} users`,
               },
             ].map((stat, index) => (
               <motion.div
@@ -988,7 +1097,7 @@ export default function DashboardPage() {
               {
                 label: "Upcoming Events",
                 value: dashboardData.stats.upcomingEvents.toString(),
-                icon: FiCalendar,
+                icon: Calendar,
                 gradient: "from-[#234C6A] to-[#2E5A7A]",
                 change:
                   dashboardData.stats.upcomingEvents > 0
@@ -998,7 +1107,7 @@ export default function DashboardPage() {
               {
                 label: "Total Joined",
                 value: dashboardData.stats.joinedEvents.toString(),
-                icon: FiUsers,
+                icon: Users,
                 gradient: "from-[#96A78D] to-[#7E9175]",
                 change:
                   dashboardData.stats.joinedEvents > 0
@@ -1006,21 +1115,34 @@ export default function DashboardPage() {
                     : "Start joining",
               },
               {
-                label: "Active Events",
-                value: dashboardData.stats.activeHostedEvents.toString(),
-                icon: FiActivity,
-                gradient: "from-[#D2C1B6] to-[#B8A79C]",
-                change:
-                  dashboardData.stats.activeHostedEvents > 0
+                label: isHostOrAdmin ? "Active Events" : "Host Status",
+                value: isHostOrAdmin 
+                  ? dashboardData.stats.activeHostedEvents.toString()
+                  : (hostStatus?.isHost ? "Host" : (hostStatus?.hostRequest?.status === 'pending' ? "Pending" : "User")),
+                icon: isHostOrAdmin ? Activity : Award,
+                gradient: isHostOrAdmin 
+                  ? "from-[#D2C1B6] to-[#B8A79C]"
+                  : (hostStatus?.isHost 
+                      ? "from-[#96A78D] to-[#7E9175]" 
+                      : hostStatus?.hostRequest?.status === 'pending'
+                      ? "from-[#D2C1B6] to-[#B8A79C]"
+                      : "from-[#234C6A] to-[#2E5A7A]"),
+                change: isHostOrAdmin
+                  ? dashboardData.stats.activeHostedEvents > 0
                     ? `${dashboardData.stats.activeHostedEvents} active`
-                    : "No active events",
+                    : "No active events"
+                  : hostStatus?.isHost 
+                    ? "Create events"
+                    : hostStatus?.hostRequest?.status === 'pending'
+                    ? "Under review"
+                    : "Become host",
               },
               ...(isHostOrAdmin
                 ? [
                     {
                       label: "Host Earnings",
                       value: formatCurrency(dashboardData.stats.hostEarnings),
-                      icon: FiTrendingUp,
+                      icon: TrendingUp,
                       gradient: "from-[#9C6A50] to-[#B88C75]",
                       change: `${dashboardData.stats.completedHostedEvents} completed`,
                     },
@@ -1029,7 +1151,7 @@ export default function DashboardPage() {
                     {
                       label: "Total Reviews",
                       value: dashboardData.stats.totalReviews.toString(),
-                      icon: FiStar,
+                      icon: Star,
                       gradient: "from-[#234C6A] to-[#96A78D]",
                       change:
                         dashboardData.stats.totalReviews > 0
@@ -1073,15 +1195,15 @@ export default function DashboardPage() {
                 <div className="border-white/10 border-b">
                   <div className="flex overflow-x-auto">
                     {[
-                      { id: "overview", label: "Overview", icon: FiGrid },
-                      { id: "events", label: "My Events", icon: FiCalendar },
+                      { id: "overview", label: "Overview", icon: Grid },
+                      { id: "events", label: "My Events", icon: Calendar },
                       ...(isHostOrAdmin && !isAdmin
                         ? [
-                            { id: "hosting", label: "Hosting", icon: FiTarget },
+                            { id: "hosting", label: "Hosting", icon: Target },
                             {
                               id: "analytics",
                               label: "Analytics",
-                              icon: FiBarChart2,
+                              icon: BarChart2,
                             },
                           ]
                         : []),
@@ -1090,7 +1212,7 @@ export default function DashboardPage() {
                             {
                               id: "admin",
                               label: "Admin",
-                              icon: FiDatabase,
+                              icon: Database,
                             },
                           ]
                         : []),
@@ -1153,16 +1275,16 @@ export default function DashboardPage() {
                               </div>
                             </div>
                           </div>
-                          <div className="mt-6 flex gap-4">
+                          <div className="flex gap-4 mt-6">
                             <Link
                               href="/admin/users"
-                              className="flex-1 text-center bg-gradient-to-r from-[#234C6A] hover:from-[#2E5A7A] to-[#96A78D] hover:to-[#7E9175] shadow-lg px-4 py-2 rounded-xl font-medium text-white transition-all"
+                              className="flex-1 bg-gradient-to-r from-[#234C6A] hover:from-[#2E5A7A] to-[#96A78D] hover:to-[#7E9175] shadow-lg px-4 py-2 rounded-xl font-medium text-white text-center transition-all"
                             >
                               Manage Users
                             </Link>
                             <Link
                               href="/admin/events"
-                              className="flex-1 text-center bg-white/10 hover:bg-white/20 px-4 py-2 border border-white/20 rounded-xl text-white transition-all"
+                              className="flex-1 bg-white/10 hover:bg-white/20 px-4 py-2 border border-white/20 rounded-xl text-white text-center transition-all"
                             >
                               Manage Events
                             </Link>
@@ -1190,7 +1312,7 @@ export default function DashboardPage() {
                                 )}
                               </div>
                               <div className="flex items-center text-[#96A78D] text-sm">
-                                <FiTrendingUp className="mr-1" />
+                                <TrendingUp className="mr-1" />
                                 From{" "}
                                 {dashboardData.stats.completedHostedEvents}{" "}
                                 events
@@ -1211,7 +1333,7 @@ export default function DashboardPage() {
                                 <h3 className="font-bold text-white">
                                   Event Types
                                 </h3>
-                                <FiPieChart className="text-white/50" />
+                                <PieChart className="text-white/50" />
                               </div>
                               <div className="h-64">
                                 <EventTypeChart
@@ -1226,7 +1348,7 @@ export default function DashboardPage() {
                             <h3 className="font-bold text-white">
                               Activity Timeline
                             </h3>
-                            <FiActivity className="text-white/50" />
+                            <Activity className="text-white/50" />
                           </div>
                           <div className="h-64 overflow-y-auto">
                             <ActivityTimeline data={chartData.activityData} />
@@ -1243,25 +1365,25 @@ export default function DashboardPage() {
                             {
                               label: "Avg. Rating",
                               value: dashboardData.stats.averageRating || "N/A",
-                              icon: FiStar,
+                              icon: Star,
                               color: "text-[#D2C1B6]",
                             },
                             {
                               label: "Total Reviews",
                               value: dashboardData.stats.totalReviews,
-                              icon: FiActivity,
+                              icon: Activity,
                               color: "text-[#96A78D]",
                             },
                             {
                               label: "Cities Visited",
                               value: citiesVisited,
-                              icon: FiMapPin,
+                              icon: MapPin,
                               color: "text-[#234C6A]",
                             },
                             {
                               label: "Active Streak",
                               value: activeStreak,
-                              icon: FiAward,
+                              icon: Award,
                               color: "text-[#9C6A50]",
                             },
                           ].map((stat, index) => (
@@ -1292,7 +1414,7 @@ export default function DashboardPage() {
                         <div className="bg-gradient-to-r from-[#9C6A50]/10 to-[#D2C1B6]/10 shadow-xl backdrop-blur-sm p-6 border border-[#9C6A50]/20 rounded-2xl">
                           <div className="flex items-center gap-3 mb-4">
                             <div className="bg-[#9C6A50]/20 p-3 rounded-xl">
-                              <FiUsers className="text-[#D2C1B6] text-xl" />
+                              <Users className="text-[#D2C1B6] text-xl" />
                             </div>
                             <div>
                               <div className="font-bold text-white text-2xl">
@@ -1309,8 +1431,8 @@ export default function DashboardPage() {
                               <span className="font-medium">{adminStats.totalHosts}</span>
                             </div>
                             <div className="flex justify-between py-1">
-                              <span>Admins:</span>
-                              <span className="font-medium">{adminStats.totalAdmins}</span>
+                              <span>Pending Requests:</span>
+                              <span className="font-medium text-[#D2C1B6]">{adminStats.pendingHostRequests}</span>
                             </div>
                             <div className="flex justify-between py-1">
                               <span>Verified:</span>
@@ -1322,7 +1444,7 @@ export default function DashboardPage() {
                         <div className="bg-gradient-to-r from-[#234C6A]/10 to-[#96A78D]/10 shadow-xl backdrop-blur-sm p-6 border border-[#96A78D]/20 rounded-2xl">
                           <div className="flex items-center gap-3 mb-4">
                             <div className="bg-[#234C6A]/20 p-3 rounded-xl">
-                              <FiLayers className="text-[#96A78D] text-xl" />
+                              <Layers className="text-[#96A78D] text-xl" />
                             </div>
                             <div>
                               <div className="font-bold text-white text-2xl">
@@ -1348,7 +1470,7 @@ export default function DashboardPage() {
                         <div className="bg-gradient-to-r from-[#D2C1B6]/10 to-white/10 shadow-xl backdrop-blur-sm p-6 border border-white/20 rounded-2xl">
                           <div className="flex items-center gap-3 mb-4">
                             <div className="bg-[#D2C1B6]/20 p-3 rounded-xl">
-                              <FiActivity className="text-white text-xl" />
+                              <Activity className="text-white text-xl" />
                             </div>
                             <div>
                               <div className="font-bold text-white text-2xl">
@@ -1361,8 +1483,8 @@ export default function DashboardPage() {
                           </div>
                           <div className="text-white/70 text-sm">
                             <div className="flex justify-between py-1">
-                              <span>User Activity:</span>
-                              <span className="font-medium">{dashboardData.stats.joinedEvents}</span>
+                              <span>Pending Actions:</span>
+                              <span className="font-medium text-[#D2C1B6]">{adminStats.pendingHostRequests}</span>
                             </div>
                             <div className="flex justify-between py-1">
                               <span>Upcoming Events:</span>
@@ -1375,16 +1497,35 @@ export default function DashboardPage() {
                       <div className="gap-6 grid grid-cols-1 md:grid-cols-2">
                         <div className="bg-white/5 backdrop-blur-sm p-6 border border-white/10 rounded-2xl">
                           <h4 className="mb-4 font-bold text-white">
-                            User Management
+                            Host Management
                           </h4>
                           <div className="space-y-3">
                             <Link
-                              href="/admin/users"
-                              className="flex items-center justify-between bg-white/5 hover:bg-white/10 p-4 rounded-xl transition-all"
+                              href="/admin/host-requests"
+                              className="flex justify-between items-center bg-gradient-to-r from-[#234C6A]/10 hover:from-[#234C6A]/20 to-[#96A78D]/10 hover:to-[#96A78D]/20 p-4 rounded-xl transition-all"
                             >
                               <div className="flex items-center gap-3">
                                 <div className="bg-[#234C6A]/20 p-2 rounded-lg">
-                                  <FiUsers className="text-[#96A78D]" />
+                                  <Clock className="text-[#96A78D]" />
+                                </div>
+                                <div>
+                                  <div className="font-medium text-white">Host Requests</div>
+                                  <div className="text-white/60 text-sm">
+                                    {adminStats.pendingHostRequests} pending requests
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="bg-[#96A78D]/20 px-2 py-1 rounded-full text-[#D2C1B6] text-sm">
+                                {adminStats.pendingHostRequests}
+                              </div>
+                            </Link>
+                            <Link
+                              href="/admin/users"
+                              className="flex justify-between items-center bg-white/5 hover:bg-white/10 p-4 rounded-xl transition-all"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="bg-[#234C6A]/20 p-2 rounded-lg">
+                                  <Users className="text-[#96A78D]" />
                                 </div>
                                 <div>
                                   <div className="font-medium text-white">All Users</div>
@@ -1393,22 +1534,8 @@ export default function DashboardPage() {
                                   </div>
                                 </div>
                               </div>
-                              <FiGlobe className="text-white/50" />
+                              <Globe className="text-white/50" />
                             </Link>
-                            <div className="flex gap-3">
-                              <button
-                                onClick={() => handleRoleChange("sample-id", "host")}
-                                className="flex-1 text-center bg-[#96A78D]/20 hover:bg-[#96A78D]/30 py-2 border border-[#96A78D]/50 rounded-xl text-[#D2C1B6] transition-all"
-                              >
-                                Promote to Host
-                              </button>
-                              <button
-                                onClick={() => handleVerifyToggle("sample-id", false)}
-                                className="flex-1 text-center bg-[#D2C1B6]/20 hover:bg-[#D2C1B6]/30 py-2 border border-[#D2C1B6]/50 rounded-xl text-white transition-all"
-                              >
-                                Verify User
-                              </button>
-                            </div>
                           </div>
                         </div>
 
@@ -1419,11 +1546,11 @@ export default function DashboardPage() {
                           <div className="space-y-3">
                             <Link
                               href="/admin/events"
-                              className="flex items-center justify-between bg-white/5 hover:bg-white/10 p-4 rounded-xl transition-all"
+                              className="flex justify-between items-center bg-white/5 hover:bg-white/10 p-4 rounded-xl transition-all"
                             >
                               <div className="flex items-center gap-3">
                                 <div className="bg-[#9C6A50]/20 p-2 rounded-lg">
-                                  <FiCalendar className="text-[#D2C1B6]" />
+                                  <Calendar className="text-[#D2C1B6]" />
                                 </div>
                                 <div>
                                   <div className="font-medium text-white">All Events</div>
@@ -1432,15 +1559,15 @@ export default function DashboardPage() {
                                   </div>
                                 </div>
                               </div>
-                              <FiGlobe className="text-white/50" />
+                              <Globe className="text-white/50" />
                             </Link>
                             <Link
                               href="/admin/reports"
-                              className="flex items-center justify-between bg-white/5 hover:bg-white/10 p-4 rounded-xl transition-all"
+                              className="flex justify-between items-center bg-white/5 hover:bg-white/10 p-4 rounded-xl transition-all"
                             >
                               <div className="flex items-center gap-3">
                                 <div className="bg-[#234C6A]/20 p-2 rounded-lg">
-                                  <FiBarChart2 className="text-[#96A78D]" />
+                                  <BarChart2 className="text-[#96A78D]" />
                                 </div>
                                 <div>
                                   <div className="font-medium text-white">Reports</div>
@@ -1449,7 +1576,7 @@ export default function DashboardPage() {
                                   </div>
                                 </div>
                               </div>
-                              <FiGlobe className="text-white/50" />
+                              <Globe className="text-white/50" />
                             </Link>
                           </div>
                         </div>
@@ -1466,7 +1593,7 @@ export default function DashboardPage() {
                           </h2>
                           <div className="flex items-center gap-3">
                             <div className="relative">
-                              <FiSearch className="top-1/2 left-3 absolute text-white/50 -translate-y-1/2 transform" />
+                              <Search className="top-1/2 left-3 absolute text-white/50 -translate-y-1/2 transform" />
                               <input
                                 type="text"
                                 placeholder="Search events..."
@@ -1474,7 +1601,7 @@ export default function DashboardPage() {
                               />
                             </div>
                             <button className="bg-white/5 hover:bg-white/10 backdrop-blur-sm p-2 border border-white/10 rounded-lg">
-                              <FiFilter className="text-white" />
+                              <Filter className="text-white" />
                             </button>
                           </div>
                         </div>
@@ -1488,7 +1615,7 @@ export default function DashboardPage() {
                               >
                                 <div className="flex-shrink-0">
                                   <div className="flex justify-center items-center bg-gradient-to-br from-[#234C6A]/20 to-[#96A78D]/20 rounded-lg w-12 h-12">
-                                    <FiCalendar className="text-[#D2C1B6] text-xl" />
+                                    <Calendar className="text-[#D2C1B6] text-xl" />
                                   </div>
                                 </div>
                                 <div className="flex-1 min-w-0">
@@ -1526,7 +1653,7 @@ export default function DashboardPage() {
                         ) : (
                           <div className="py-8 text-center">
                             <div className="inline-flex justify-center items-center bg-white/5 mb-4 p-4 rounded-2xl">
-                              <FiCalendar className="text-white/40 text-2xl" />
+                              <Calendar className="text-white/40 text-2xl" />
                             </div>
                             <h3 className="mb-2 font-bold text-white">
                               No Events Joined
@@ -1538,7 +1665,7 @@ export default function DashboardPage() {
                               href="/events"
                               className="inline-flex items-center gap-2 bg-gradient-to-r from-[#234C6A]/20 hover:from-[#234C6A]/30 to-[#96A78D]/20 hover:to-[#96A78D]/30 px-6 py-3 border border-[#96A78D]/50 rounded-xl text-[#D2C1B6] transition-all"
                             >
-                              <FiGlobe />
+                              <Globe />
                               Find Activities
                             </Link>
                           </div>
@@ -1558,25 +1685,25 @@ export default function DashboardPage() {
                             {
                               label: "Active Events",
                               value: dashboardData.stats.activeHostedEvents,
-                              icon: FiActivity,
+                              icon: Activity,
                               color: "text-[#9C6A50]",
                             },
                             {
                               label: "Completed",
                               value: dashboardData.stats.completedHostedEvents,
-                              icon: FiCheckCircle,
+                              icon: CheckCircle,
                               color: "text-[#96A78D]",
                             },
                             {
                               label: "Total Reviews",
                               value: dashboardData.stats.totalReviews,
-                              icon: FiStar,
+                              icon: Star,
                               color: "text-[#D2C1B6]",
                             },
                             {
                               label: "Avg. Rating",
                               value: dashboardData.stats.averageRating || "N/A",
-                              icon: FiAward,
+                              icon: Award,
                               color: "text-[#234C6A]",
                             },
                           ].map((stat, index) => (
@@ -1608,7 +1735,7 @@ export default function DashboardPage() {
                             href="/events/create"
                             className="inline-flex items-center gap-2 bg-gradient-to-r from-[#234C6A]/20 hover:from-[#234C6A]/30 to-[#96A78D]/20 hover:to-[#96A78D]/30 px-4 py-2 border border-[#96A78D]/50 rounded-xl text-[#D2C1B6] text-sm"
                           >
-                            <FiPlus />
+                            <Plus />
                             New Event
                           </Link>
                         </div>
@@ -1622,7 +1749,7 @@ export default function DashboardPage() {
                         ) : (
                           <div className="py-8 text-center">
                             <div className="inline-flex justify-center items-center bg-white/5 mb-4 p-4 rounded-2xl">
-                              <FiTarget className="text-white/40 text-2xl" />
+                              <Target className="text-white/40 text-2xl" />
                             </div>
                             <h3 className="mb-2 font-bold text-white">
                               No Active Events
@@ -1643,31 +1770,31 @@ export default function DashboardPage() {
                           {
                             label: "Conversion Rate",
                             value: `${dashboardData.stats.conversionRate}%`,
-                            icon: FiTrendingUp,
+                            icon: TrendingUp,
                             color: "text-[#96A78D]",
                           },
                           {
                             label: "Engagement Rate",
                             value: `${dashboardData.stats.engagementRate}%`,
-                            icon: FiUsers,
+                            icon: Users,
                             color: "text-[#D2C1B6]",
                           },
                           {
                             label: "Avg. Rating",
                             value: dashboardData.stats.averageRating || "N/A",
-                            icon: FiStar,
+                            icon: Star,
                             color: "text-[#F5F0EB]",
                           },
                           {
                             label: "Event Completion",
                             value: `${dashboardData.stats.completedHostedEvents}/${dashboardData.stats.hostedEvents}`,
-                            icon: FiCheckCircle,
+                            icon: CheckCircle,
                             color: "text-[#96A78D]",
                           },
                           {
                             label: "Active Events",
                             value: dashboardData.stats.activeHostedEvents,
-                            icon: FiActivity,
+                            icon: Activity,
                             color: "text-[#D2C1B6]",
                           },
                           {
@@ -1675,7 +1802,7 @@ export default function DashboardPage() {
                             value: formatCurrency(
                               dashboardData.stats.hostEarnings
                             ),
-                            icon: FiDollarSign,
+                            icon: DollarSign,
                             color: "text-[#F5F0EB]",
                           },
                         ].map((metric, index) => (
@@ -1771,14 +1898,14 @@ export default function DashboardPage() {
                     className="flex justify-between items-center bg-white/5 hover:bg-white/10 p-3 rounded-lg transition-all"
                   >
                     <span className="text-white">View Profile</span>
-                    <FiGlobe className="text-white/50" />
+                    <Globe className="text-white/50" />
                   </Link>
                   <Link
                     href="/settings"
                     className="flex justify-between items-center bg-white/5 hover:bg-white/10 p-3 rounded-lg transition-all"
                   >
                     <span className="text-white">Settings</span>
-                    <FiSettings className="text-white/50" />
+                    <Settings className="text-white/50" />
                   </Link>
                   {isAdmin && (
                     <Link
@@ -1786,7 +1913,7 @@ export default function DashboardPage() {
                       className="flex justify-between items-center bg-[#9C6A50]/10 hover:bg-[#9C6A50]/20 p-3 rounded-lg transition-all"
                     >
                       <span className="text-[#D2C1B6]">Admin Panel</span>
-                      <FiDatabase className="text-[#D2C1B6]" />
+                      <Database className="text-[#D2C1B6]" />
                     </Link>
                   )}
                   <button
@@ -1794,7 +1921,7 @@ export default function DashboardPage() {
                     className="flex justify-between items-center bg-gradient-to-r from-[#9C6A50]/10 hover:from-[#9C6A50]/20 to-[#D2C1B6]/10 hover:to-[#D2C1B6]/20 p-3 rounded-lg w-full text-[#D2C1B6] transition-all"
                   >
                     <span>Logout</span>
-                    <FiLogOut />
+                    <LogOut />
                   </button>
                 </div>
               </div>
@@ -1802,7 +1929,7 @@ export default function DashboardPage() {
               <div className="bg-gradient-to-b from-[#9C6A50]/10 to-[#D2C1B6]/10 shadow-xl backdrop-blur-sm p-6 border border-[#9C6A50]/20 rounded-2xl">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="bg-[#9C6A50]/20 p-2 rounded-lg">
-                    <FiHelpCircle className="text-[#D2C1B6] text-xl" />
+                    <HelpCircle className="text-[#D2C1B6] text-xl" />
                   </div>
                   <h3 className="font-bold text-white">Need Help?</h3>
                 </div>
@@ -1814,7 +1941,7 @@ export default function DashboardPage() {
                   href="/help"
                   className="inline-flex justify-center items-center gap-2 bg-[#9C6A50]/20 hover:bg-[#9C6A50]/30 py-2 border border-[#9C6A50]/30 rounded-xl w-full text-[#D2C1B6] text-center transition-all"
                 >
-                  <FiHelpCircle />
+                  <HelpCircle />
                   Get Help
                 </Link>
               </div>
@@ -1853,7 +1980,7 @@ export default function DashboardPage() {
                       href="/admin/users"
                       className="inline-flex items-center gap-2 bg-gradient-to-r from-[#234C6A] hover:from-[#2E5A7A] to-[#96A78D] hover:to-[#7E9175] shadow-lg px-6 py-3 rounded-xl font-medium text-white transition-all"
                     >
-                      <FiUsers />
+                      <Users />
                       Manage Users
                     </Link>
                     <Link
@@ -1869,7 +1996,7 @@ export default function DashboardPage() {
                       href="/events/create"
                       className="inline-flex items-center gap-2 bg-gradient-to-r from-[#234C6A] hover:from-[#2E5A7A] to-[#96A78D] hover:to-[#7E9175] shadow-lg px-6 py-3 rounded-xl font-medium text-white transition-all"
                     >
-                      <FiPlus />
+                      <Plus />
                       Create Event
                     </Link>
                     <Link
@@ -1885,7 +2012,7 @@ export default function DashboardPage() {
                       href="/events"
                       className="inline-flex items-center gap-2 bg-gradient-to-r from-[#234C6A] hover:from-[#2E5A7A] to-[#96A78D] hover:to-[#7E9175] shadow-lg px-6 py-3 rounded-xl font-medium text-white transition-all"
                     >
-                      <FiGlobe />
+                      <Globe />
                       Find Events
                     </Link>
                     <Link

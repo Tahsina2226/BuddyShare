@@ -25,7 +25,7 @@ import {
   FiActivity,
   FiPieChart,
   FiTarget,
-  FiAward, // নতুন আইকন যোগ করা হলো
+  FiAward,
 } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 
@@ -128,6 +128,7 @@ export default function Navbar() {
     window.dispatchEvent(new Event(AUTH_EVENTS.LOGOUT));
 
     router.push("/");
+    router.refresh();
   };
 
   const getUserRoleBadge = (role: string) => {
@@ -175,23 +176,19 @@ export default function Navbar() {
     }
   };
 
-  // Host Application ফর্মের URL
   const getBecomeHostUrl = (): string => {
     if (!currentUser) {
       return "/auth/login";
     }
     
-    // User role হলে Host Application পেজে নিয়ে যাবে
     if (currentUser.role === "user") {
-      return "/host/apply";
+      return "/become-host";
     }
     
-    // যদি ইতিমধ্যে Host হয়ে থাকে, তাহলে Host Dashboard-এ নিয়ে যাবে
     if (currentUser.role === "host") {
       return "/host/dashboard";
     }
     
-    // Admin এর জন্য Host Application এর প্রয়োজন নেই
     return "/dashboard";
   };
 
@@ -229,7 +226,6 @@ export default function Navbar() {
       },
     ];
 
-    // User role এর জন্য Become Host আইটেম যোগ করা হলো
     const userSpecificItems = [
       {
         label: "Become a Host",
@@ -447,7 +443,6 @@ export default function Navbar() {
           </Link>
 
           <div className="hidden md:flex items-center space-x-4">
-            {/* Dashboard Link for all logged in users */}
             {displayUser && (
               <Link
                 href={getDashboardUrl()}
@@ -468,7 +463,6 @@ export default function Navbar() {
 
             {displayUser ? (
               <>
-                {/* User Role এর জন্য Become a Host লিংক যোগ করা হলো */}
                 {displayUser.role === "user" && (
                   <>
                     <Link
@@ -616,7 +610,6 @@ export default function Navbar() {
                 </div>
               </>
             ) : (
-              // Logged Out State
               <>
                 <Link
                   href="/become-host"
@@ -735,7 +728,6 @@ export default function Navbar() {
 
               {displayUser ? (
                 <>
-                  {/* Mobile View এও User role এর জন্য Become Host যোগ করা হলো */}
                   {displayUser.role === "user" && (
                     <Link
                       href={getBecomeHostUrl()}
@@ -811,7 +803,6 @@ export default function Navbar() {
                   {menuItems.map((item, index) => renderMenuItem(item, index, true))}
                 </>
               ) : (
-                // Logged Out Mobile View
                 <>
                   <Link
                     href="/become-host"

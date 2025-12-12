@@ -12,38 +12,80 @@ import {
   FiEyeOff,
   FiAlertCircle,
   FiCheckCircle,
+  FiInfo,
+  FiXCircle,
 } from "react-icons/fi";
 import toast, { Toaster } from "react-hot-toast";
 
-const FancyAlert = ({
-  type,
+// Custom Toast Component with beautiful animations
+const FancyToast = ({ 
+  type, 
   message,
-}: {
-  type: "success" | "error" | "info" | "warning";
-  message: string;
+  t 
+}: { 
+  type: 'success' | 'error' | 'info' | 'warning' | 'loading'
+  message: string
+  t: any
 }) => {
   const icons = {
-    success: <FiCheckCircle className="text-green-400 text-xl" />,
-    error: <FiAlertCircle className="text-red-400 text-xl" />,
-    warning: <FiAlertCircle className="text-yellow-400 text-xl" />,
-    info: <FiAlertCircle className="text-blue-400 text-xl" />,
+    success: <FiCheckCircle className="text-emerald-400 text-xl" />,
+    error: <FiXCircle className="text-rose-400 text-xl" />,
+    warning: <FiAlertCircle className="text-amber-400 text-xl" />,
+    info: <FiInfo className="text-sky-400 text-xl" />,
+    loading: (
+      <div className="relative">
+        <div className="absolute inset-0 border-2 border-transparent border-t-white rounded-full animate-spin"></div>
+        <div className="border border-white/30 rounded-full w-5 h-5"></div>
+      </div>
+    ),
   };
 
   const bgColors = {
-    success:
-      "bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-green-500/30",
-    error: "bg-gradient-to-r from-red-500/20 to-rose-500/20 border-red-500/30",
-    warning:
-      "bg-gradient-to-r from-yellow-500/20 to-amber-500/20 border-yellow-500/30",
-    info: "bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-blue-500/30",
+    success: "bg-gradient-to-r from-emerald-900/90 via-emerald-800/80 to-emerald-900/90",
+    error: "bg-gradient-to-r from-rose-900/90 via-rose-800/80 to-rose-900/90",
+    warning: "bg-gradient-to-r from-amber-900/90 via-amber-800/80 to-amber-900/90",
+    info: "bg-gradient-to-r from-sky-900/90 via-sky-800/80 to-sky-900/90",
+    loading: "bg-gradient-to-r from-gray-900/90 via-gray-800/80 to-gray-900/90",
+  };
+
+  const borderColors = {
+    success: "border-l-4 border-emerald-500",
+    error: "border-l-4 border-rose-500",
+    warning: "border-l-4 border-amber-500",
+    info: "border-l-4 border-sky-500",
+    loading: "border-l-4 border-gray-500",
   };
 
   return (
     <div
-      className={`${bgColors[type]} backdrop-blur-lg border px-6 py-4 rounded-xl shadow-2xl flex items-center space-x-3 animate-in slide-in-from-top-5 duration-300`}
+      className={`
+        ${bgColors[type]} 
+        ${borderColors[type]}
+        backdrop-blur-xl 
+        border border-white/10 
+        px-6 py-4 
+        rounded-xl 
+        shadow-2xl 
+        shadow-black/30
+        flex 
+        items-center 
+        space-x-3
+        transform-gpu
+        transition-all
+        duration-300
+        ${t.visible ? 'translate-x-0 opacity-100' : 'translate-x-10 opacity-0'}
+      `}
     >
       {icons[type]}
-      <span className="font-medium text-white">{message}</span>
+      <span className="font-medium text-white text-sm">{message}</span>
+      {type !== 'loading' && (
+        <button
+          onClick={() => toast.dismiss(t.id)}
+          className="ml-4 text-white/50 hover:text-white transition-colors duration-200"
+        >
+          <FiXCircle size={16} />
+        </button>
+      )}
     </div>
   );
 };
@@ -55,29 +97,65 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const showAlert = (
-    type: "success" | "error" | "info" | "warning",
-    message: string
-  ) => {
-    toast.custom((t) => <FancyAlert type={type} message={message} />, {
+  // Toast notification functions
+  const showSuccess = (message: string) => {
+    toast.custom((t) => (
+      <FancyToast type="success" message={message} t={t} />
+    ), {
       duration: 4000,
-      position: "top-center",
+      position: 'top-center',
+    });
+  };
+
+  const showError = (message: string) => {
+    toast.custom((t) => (
+      <FancyToast type="error" message={message} t={t} />
+    ), {
+      duration: 5000,
+      position: 'top-center',
+    });
+  };
+
+  const showWarning = (message: string) => {
+    toast.custom((t) => (
+      <FancyToast type="warning" message={message} t={t} />
+    ), {
+      duration: 4000,
+      position: 'top-center',
+    });
+  };
+
+  const showInfo = (message: string) => {
+    toast.custom((t) => (
+      <FancyToast type="info" message={message} t={t} />
+    ), {
+      duration: 3000,
+      position: 'top-center',
+    });
+  };
+
+  const showLoading = (message: string) => {
+    return toast.custom((t) => (
+      <FancyToast type="loading" message={message} t={t} />
+    ), {
+      duration: Infinity,
+      position: 'top-center',
     });
   };
 
   const validateForm = () => {
     if (!email || !password) {
-      showAlert("error", "Please fill in all required fields");
+      showError("Please fill in all required fields");
       return false;
     }
 
     if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
-      showAlert("error", "Please enter a valid email address");
+      showError("Please enter a valid email address");
       return false;
     }
 
     if (password.length < 6) {
-      showAlert("error", "Password must be at least 6 characters");
+      showError("Password must be at least 6 characters");
       return false;
     }
 
@@ -91,16 +169,7 @@ export default function LoginPage() {
 
     setLoading(true);
 
-    const loadingToast = toast.loading(
-      <div className="flex items-center space-x-3">
-        <div className="border-white border-b-2 rounded-full w-5 h-5 animate-spin"></div>
-        <span className="text-white">Signing you in...</span>
-      </div>,
-      {
-        position: "top-center",
-        duration: Infinity,
-      }
-    );
+    const loadingToast = showLoading("Signing you in...");
 
     try {
       const result = await signIn("credentials", {
@@ -130,7 +199,7 @@ export default function LoginPage() {
 
       if (result?.ok && !result?.error) {
         toast.dismiss(loadingToast);
-        showAlert("success", "Login successful! Redirecting...");
+        showSuccess("Login successful! Redirecting...");
 
         // Redirect to home page
         setTimeout(() => {
@@ -150,8 +219,7 @@ export default function LoginPage() {
           "Cannot connect to the server. Please make sure the backend is running.";
       }
 
-      showAlert(
-        "error",
+      showError(
         errorMessage || "Login failed. Please check your credentials."
       );
     } finally {
@@ -162,16 +230,7 @@ export default function LoginPage() {
   const handleGoogleLogin = async () => {
     setLoading(true);
 
-    const loadingToast = toast.loading(
-      <div className="flex items-center space-x-3">
-        <div className="border-white border-b-2 rounded-full w-5 h-5 animate-spin"></div>
-        <span className="text-white">Connecting to Google...</span>
-      </div>,
-      {
-        position: "top-center",
-        duration: Infinity,
-      }
-    );
+    const loadingToast = showLoading("Connecting to Google...");
 
     try {
       const result = await signIn("google", {
@@ -185,7 +244,7 @@ export default function LoginPage() {
 
       if (result?.url) {
         toast.dismiss(loadingToast);
-        showAlert("success", "Google login successful! Redirecting...");
+        showSuccess("Google login successful! Redirecting...");
         window.location.href = result.url;
       } else {
         throw new Error("Google login failed");
@@ -202,8 +261,7 @@ export default function LoginPage() {
         errorMessage = "Google authentication failed. Please try again.";
       }
 
-      showAlert(
-        "error",
+      showError(
         errorMessage || "Google login failed. Please try again."
       );
       setLoading(false);
@@ -212,14 +270,21 @@ export default function LoginPage() {
 
   return (
     <div className="flex justify-center items-center bg-gradient-to-br from-[#234C6A] via-[#D2C1B6] to-[#96A78D] px-4 sm:px-6 lg:px-8 py-12 min-h-screen">
-      <Toaster
+      {/* Enhanced Toaster with proper configuration */}
+      <Toaster 
+        containerStyle={{
+          top: 20,
+          zIndex: 99999,
+        }}
         toastOptions={{
-          className: "",
+          className: '',
           style: {
-            background: "transparent",
-            boxShadow: "none",
+            background: 'transparent',
+            boxShadow: 'none',
             padding: 0,
             margin: 0,
+            maxWidth: '500px',
+            width: '100%',
           },
         }}
       />
@@ -227,7 +292,7 @@ export default function LoginPage() {
       <div className="space-y-8 w-full max-w-md">
         <div className="slide-in-from-top-5 text-center animate-in duration-500 fade-in">
           <div className="flex justify-center items-center bg-white/20 backdrop-blur-sm mx-auto mb-4 border border-white/30 rounded-full w-16 h-16 animate-in duration-500 delay-100 fade-in">
-            <FiLock className="text-white text-xl" />
+            <FiLock className="text-white text-2xl" />
           </div>
           <h2 className="drop-shadow-sm font-bold text-white text-3xl tracking-tight">
             Welcome back
@@ -335,16 +400,19 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="group relative flex justify-center items-center bg-gradient-to-r from-white/20 hover:from-white/30 to-white/10 hover:to-white/20 disabled:opacity-50 shadow-lg hover:shadow-xl backdrop-blur-sm px-6 py-3 border border-white/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-2 w-full font-semibold text-white text-sm hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 transform"
+              className="group relative flex justify-center items-center bg-gradient-to-r from-white/20 hover:from-white/30 to-white/10 hover:to-white/20 disabled:opacity-50 shadow-lg hover:shadow-xl backdrop-blur-sm px-6 py-3 border border-white/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-2 w-full overflow-hidden font-semibold text-white text-sm hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 transform"
             >
-              {loading ? (
-                <div className="flex items-center space-x-2">
-                  <div className="border-white border-b-2 rounded-full w-5 h-5 animate-spin"></div>
-                  <span>Signing in...</span>
-                </div>
-              ) : (
-                "Sign in to your account"
-              )}
+              <span className="z-10 relative">
+                {loading ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="border-white border-b-2 rounded-full w-5 h-5 animate-spin"></div>
+                    <span>Signing in...</span>
+                  </div>
+                ) : (
+                  "Sign in to your account"
+                )}
+              </span>
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent transition-transform translate-x-[-100%] group-hover:translate-x-[100%] duration-1000" />
             </button>
           </form>
 
@@ -359,10 +427,13 @@ export default function LoginPage() {
           <button
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="flex justify-center items-center gap-3 bg-white/10 hover:bg-white/20 shadow-lg hover:shadow-xl backdrop-blur-sm px-6 py-3 border border-white/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-2 w-full font-medium text-white text-sm hover:scale-[1.02] active:scale-[0.98] transition-all animate-in duration-200 duration-500 delay-400 transform fade-in"
+            className="group relative flex justify-center items-center gap-3 bg-white/10 hover:bg-white/20 shadow-lg hover:shadow-xl backdrop-blur-sm px-6 py-3 border border-white/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-2 w-full overflow-hidden font-medium text-white text-sm hover:scale-[1.02] active:scale-[0.98] transition-all animate-in duration-200 duration-500 delay-400 transform fade-in"
           >
             <FcGoogle size={20} />
-            {loading ? "Connecting..." : "Sign in with Google"}
+            <span className="z-10 relative">
+              {loading ? "Connecting..." : "Sign in with Google"}
+            </span>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent transition-transform translate-x-[-100%] group-hover:translate-x-[100%] duration-1000" />
           </button>
         </div>
 

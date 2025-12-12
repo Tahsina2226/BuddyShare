@@ -19,7 +19,7 @@ interface Event {
     _id: string;
     name: string;
     email: string;
-  };
+  } | null; // Make host nullable
   participants: Array<{ _id: string; name: string }>;
   maxParticipants: number;
   currentParticipants: number;
@@ -272,10 +272,20 @@ export default function ManageEventsPage() {
       const data = await response.json();
 
       if (data.success) {
-        setEvents(data.data.events);
+        // Ensure host is never null in the events array
+        const eventsWithSafeHost = data.data.events.map((event: any) => ({
+          ...event,
+          host: event.host || {
+            _id: "unknown",
+            name: "Unknown Host",
+            email: "unknown@example.com",
+          },
+        }));
+
+        setEvents(eventsWithSafeHost);
         setTotalPages(data.data.pagination.pages);
 
-        const eventsList = data.data.events;
+        const eventsList = eventsWithSafeHost;
         const statsData = {
           total: eventsList.length,
           open: eventsList.filter((e: Event) => e.status === "open").length,
@@ -848,19 +858,21 @@ export default function ManageEventsPage() {
                         <td className="px-6 py-4">
                           <div className="text-sm">
                             <div className="font-medium text-white">
-                              {event.host.name}
+                              {event.host?.name || "Unknown Host"}
                             </div>
                             <div className="mb-2 text-[#F5F0EB]/50 text-xs">
-                              {event.host.email}
+                              {event.host?.email || "No email available"}
                             </div>
-                            <Link
-                              href={`/profile/${event.host._id}`}
-                              className="text-[#96A78D] hover:text-[#D2C1B6] text-xs transition-colors"
-                            >
-                              <span className="flex items-center gap-1">
-                                👤 View Profile
-                              </span>
-                            </Link>
+                            {event.host?._id !== "unknown" && (
+                              <Link
+                                href={`/profile/${event.host?._id || "#"}`}
+                                className="text-[#96A78D] hover:text-[#D2C1B6] text-xs transition-colors"
+                              >
+                                <span className="flex items-center gap-1">
+                                  👤 View Profile
+                                </span>
+                              </Link>
+                            )}
                           </div>
                         </td>
                         <td className="px-6 py-4">

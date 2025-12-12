@@ -15,30 +15,82 @@ import {
   FiMapPin,
   FiCheckCircle,
   FiAlertCircle,
+  FiInfo,
+  FiXCircle,
 } from "react-icons/fi";
 import { Role } from "@/types/auth";
 import API from "@/utils/api";
 import toast, { Toaster } from "react-hot-toast";
 
-const FancyAlert = ({ type, message }: { type: 'success' | 'error' | 'info' | 'warning', message: string }) => {
+// Custom Toast Component with beautiful animations
+const FancyToast = ({ 
+  type, 
+  message,
+  t 
+}: { 
+  type: 'success' | 'error' | 'info' | 'warning' | 'loading'
+  message: string
+  t: any
+}) => {
   const icons = {
-    success: <FiCheckCircle className="text-green-400 text-xl" />,
-    error: <FiAlertCircle className="text-red-400 text-xl" />,
-    warning: <FiAlertCircle className="text-yellow-400 text-xl" />,
-    info: <FiAlertCircle className="text-blue-400 text-xl" />,
+    success: <FiCheckCircle className="text-emerald-400 text-xl" />,
+    error: <FiXCircle className="text-rose-400 text-xl" />,
+    warning: <FiAlertCircle className="text-amber-400 text-xl" />,
+    info: <FiInfo className="text-sky-400 text-xl" />,
+    loading: (
+      <div className="relative">
+        <div className="absolute inset-0 border-2 border-transparent border-t-white rounded-full animate-spin"></div>
+        <div className="border border-white/30 rounded-full w-5 h-5"></div>
+      </div>
+    ),
   };
 
   const bgColors = {
-    success: "bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-green-500/30",
-    error: "bg-gradient-to-r from-red-500/20 to-rose-500/20 border-red-500/30",
-    warning: "bg-gradient-to-r from-yellow-500/20 to-amber-500/20 border-yellow-500/30",
-    info: "bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-blue-500/30",
+    success: "bg-gradient-to-r from-emerald-900/90 via-emerald-800/80 to-emerald-900/90",
+    error: "bg-gradient-to-r from-rose-900/90 via-rose-800/80 to-rose-900/90",
+    warning: "bg-gradient-to-r from-amber-900/90 via-amber-800/80 to-amber-900/90",
+    info: "bg-gradient-to-r from-sky-900/90 via-sky-800/80 to-sky-900/90",
+    loading: "bg-gradient-to-r from-gray-900/90 via-gray-800/80 to-gray-900/90",
+  };
+
+  const borderColors = {
+    success: "border-l-4 border-emerald-500",
+    error: "border-l-4 border-rose-500",
+    warning: "border-l-4 border-amber-500",
+    info: "border-l-4 border-sky-500",
+    loading: "border-l-4 border-gray-500",
   };
 
   return (
-    <div className={`${bgColors[type]} backdrop-blur-lg border px-6 py-4 rounded-xl shadow-2xl flex items-center space-x-3 animate-in slide-in-from-top-5 duration-300`}>
+    <div
+      className={`
+        ${bgColors[type]} 
+        ${borderColors[type]}
+        backdrop-blur-xl 
+        border border-white/10 
+        px-6 py-4 
+        rounded-xl 
+        shadow-2xl 
+        shadow-black/30
+        flex 
+        items-center 
+        space-x-3
+        transform-gpu
+        transition-all
+        duration-300
+        ${t.visible ? 'translate-x-0 opacity-100' : 'translate-x-10 opacity-0'}
+      `}
+    >
       {icons[type]}
-      <span className="font-medium text-white">{message}</span>
+      <span className="font-medium text-white text-sm">{message}</span>
+      {type !== 'loading' && (
+        <button
+          onClick={() => toast.dismiss(t.id)}
+          className="ml-4 text-white/50 hover:text-white transition-colors duration-200"
+        >
+          <FiXCircle size={16} />
+        </button>
+      )}
     </div>
   );
 };
@@ -57,9 +109,7 @@ export default function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   
-  // SIMPLE SOLUTION: Check localStorage on initial load
   const [isAdminAvailable, setIsAdminAvailable] = useState<boolean>(() => {
-    // Check if admin already registered in this browser
     if (typeof window !== "undefined") {
       const hasAdmin = localStorage.getItem("hasRegisteredAdmin");
       return hasAdmin !== "true";
@@ -69,11 +119,48 @@ export default function RegisterPage() {
   
   const router = useRouter();
 
-  const showAlert = (type: 'success' | 'error' | 'info' | 'warning', message: string) => {
+  // Toast notification functions
+  const showSuccess = (message: string) => {
     toast.custom((t) => (
-      <FancyAlert type={type} message={message} />
+      <FancyToast type="success" message={message} t={t} />
     ), {
       duration: 4000,
+      position: 'top-center',
+    });
+  };
+
+  const showError = (message: string) => {
+    toast.custom((t) => (
+      <FancyToast type="error" message={message} t={t} />
+    ), {
+      duration: 5000,
+      position: 'top-center',
+    });
+  };
+
+  const showWarning = (message: string) => {
+    toast.custom((t) => (
+      <FancyToast type="warning" message={message} t={t} />
+    ), {
+      duration: 4000,
+      position: 'top-center',
+    });
+  };
+
+  const showInfo = (message: string) => {
+    toast.custom((t) => (
+      <FancyToast type="info" message={message} t={t} />
+    ), {
+      duration: 3000,
+      position: 'top-center',
+    });
+  };
+
+  const showLoading = (message: string) => {
+    return toast.custom((t) => (
+      <FancyToast type="loading" message={message} t={t} />
+    ), {
+      duration: Infinity,
       position: 'top-center',
     });
   };
@@ -86,28 +173,27 @@ export default function RegisterPage() {
 
   const validateForm = () => {
     if (!formData.name || !formData.email || !formData.password || !formData.location) {
-      showAlert('error', "Please fill in all required fields");
+      showError("Please fill in all required fields");
       return false;
     }
 
     if (!formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
-      showAlert('error', "Please enter a valid email address");
+      showError("Please enter a valid email address");
       return false;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      showAlert('error', "Passwords do not match");
+      showError("Passwords do not match");
       return false;
     }
 
     if (formData.password.length < 6) {
-      showAlert('error', "Password must be at least 6 characters");
+      showError("Password must be at least 6 characters");
       return false;
     }
 
-    // Check if admin is available (localStorage based)
     if (formData.role === "admin" && !isAdminAvailable) {
-      showAlert('error', "Admin registration is no longer available");
+      showError("Admin registration is no longer available");
       return false;
     }
 
@@ -121,31 +207,23 @@ export default function RegisterPage() {
 
     setLoading(true);
     
-    const loadingToast = toast.loading(
-      <div className="flex items-center space-x-3">
-        <div className="border-white border-b-2 rounded-full w-5 h-5 animate-spin"></div>
-        <span className="text-white">Creating your account...</span>
-      </div>,
-      {
-        position: 'top-center',
-        duration: Infinity,
-      }
-    );
+    const loadingToast = showLoading("Creating your account...");
 
     try {
       const res = await API.post("/auth/register", formData);
       const { token, user } = res.data.data;
 
-      // SIMPLE SOLUTION: Save to localStorage if admin registered
+      // Dismiss loading toast
+      toast.dismiss(loadingToast);
+
+      // Save to localStorage if admin registered
       if (formData.role === "admin") {
         localStorage.setItem("hasRegisteredAdmin", "true");
         setIsAdminAvailable(false);
-        showAlert('success', "🎉 Congratulations! You are now the system administrator!");
+        showSuccess("🎉 Congratulations! You are now the system administrator!");
       } else {
-        showAlert('success', "Account created successfully! Redirecting to login...");
+        showSuccess("Account created successfully! Redirecting to login...");
       }
-
-      toast.dismiss(loadingToast);
 
       setTimeout(() => {
         router.push("/auth/login");
@@ -158,9 +236,9 @@ export default function RegisterPage() {
       if (err.response?.data?.message?.toLowerCase().includes("admin")) {
         localStorage.setItem("hasRegisteredAdmin", "true");
         setIsAdminAvailable(false);
-        showAlert('error', "An admin already exists in the system. Please register as a regular user.");
+        showError("An admin already exists in the system. Please register as a regular user.");
       } else {
-        showAlert('error', 
+        showError(
           err.response?.data?.message ||
           err.message ||
           "Registration failed. Please try again."
@@ -174,16 +252,7 @@ export default function RegisterPage() {
   const handleGoogleRegister = async () => {
     setLoading(true);
     
-    const loadingToast = toast.loading(
-      <div className="flex items-center space-x-3">
-        <div className="border-white border-b-2 rounded-full w-5 h-5 animate-spin"></div>
-        <span className="text-white">Connecting to Google...</span>
-      </div>,
-      {
-        position: 'top-center',
-        duration: Infinity,
-      }
-    );
+    const loadingToast = showLoading("Connecting to Google...");
 
     try {
       const result = await signIn("google", {
@@ -197,12 +266,12 @@ export default function RegisterPage() {
 
       if (result?.url) {
         toast.dismiss(loadingToast);
-        showAlert('success', "Google registration successful! Redirecting...");
+        showSuccess("Google registration successful! Redirecting...");
         router.push(result.url);
       }
     } catch (err: any) {
       toast.dismiss(loadingToast);
-      showAlert('error', 
+      showError(
         err.message ||
         "Google registration failed. Please try again."
       );
@@ -222,7 +291,12 @@ export default function RegisterPage() {
 
   return (
     <div className="flex justify-center items-center bg-gradient-to-br from-[#234C6A] via-[#D2C1B6] to-[#96A78D] px-4 sm:px-6 lg:px-8 py-12 min-h-screen">
+      {/* Enhanced Toaster with proper configuration */}
       <Toaster 
+        containerStyle={{
+          top: 20,
+          zIndex: 99999,
+        }}
         toastOptions={{
           className: '',
           style: {
@@ -230,6 +304,8 @@ export default function RegisterPage() {
             boxShadow: 'none',
             padding: 0,
             margin: 0,
+            maxWidth: '500px',
+            width: '100%',
           },
         }}
       />
@@ -347,16 +423,16 @@ export default function RegisterPage() {
                 )}
               </select>
               {formData.role === "admin" && isAdminAvailable && (
-                <div className="bg-gradient-to-r from-yellow-500/20 to-amber-500/20 mt-2 p-3 border border-yellow-500/30 rounded-lg animate-in fade-in">
-                  <p className="flex items-center space-x-2 text-yellow-300 text-xs">
+                <div className="bg-gradient-to-r from-amber-500/10 to-yellow-500/10 mt-2 p-3 border border-amber-500/20 rounded-lg animate-in fade-in">
+                  <p className="flex items-center space-x-2 text-amber-300 text-xs">
                     <FiAlertCircle />
                     <span>Only one admin can be created. This option will disappear after admin registration.</span>
                   </p>
                 </div>
               )}
               {formData.role === "admin" && !isAdminAvailable && (
-                <div className="bg-gradient-to-r from-red-500/20 to-rose-500/20 mt-2 p-3 border border-red-500/30 rounded-lg animate-in fade-in">
-                  <p className="flex items-center space-x-2 text-red-300 text-xs">
+                <div className="bg-gradient-to-r from-rose-500/10 to-red-500/10 mt-2 p-3 border border-rose-500/20 rounded-lg animate-in fade-in">
+                  <p className="flex items-center space-x-2 text-rose-300 text-xs">
                     <FiAlertCircle />
                     <span>Admin registration is no longer available.</span>
                   </p>
@@ -427,16 +503,19 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={loading}
-            className="bg-gradient-to-r from-white/20 hover:from-white/30 to-white/10 hover:to-white/20 disabled:opacity-50 shadow-lg hover:shadow-xl px-6 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 w-full font-semibold text-white hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 disabled:cursor-not-allowed transform"
+            className="group relative bg-gradient-to-r from-white/20 hover:from-white/30 to-white/10 hover:to-white/20 disabled:opacity-50 shadow-lg hover:shadow-xl px-6 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 w-full overflow-hidden font-semibold text-white hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 disabled:cursor-not-allowed transform"
           >
-            {loading ? (
-              <span className="flex justify-center items-center space-x-2">
-                <div className="border-white border-b-2 rounded-full w-5 h-5 animate-spin"></div>
-                <span>Creating account...</span>
-              </span>
-            ) : (
-              "Create your account"
-            )}
+            <span className="z-10 relative flex justify-center items-center space-x-2">
+              {loading ? (
+                <>
+                  <div className="border-white border-b-2 rounded-full w-5 h-5 animate-spin"></div>
+                  <span>Creating account...</span>
+                </>
+              ) : (
+                "Create your account"
+              )}
+            </span>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent transition-transform translate-x-[-100%] group-hover:translate-x-[100%] duration-1000" />
           </button>
         </form>
 
@@ -449,10 +528,13 @@ export default function RegisterPage() {
         <button
           onClick={handleGoogleRegister}
           disabled={loading}
-          className="flex justify-center items-center gap-3 bg-white/10 hover:bg-white/20 disabled:opacity-50 shadow-lg hover:shadow-xl px-6 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 w-full font-medium text-white hover:scale-[1.02] active:scale-[0.98] transition-all animate-in duration-200 duration-500 delay-400 disabled:cursor-not-allowed transform fade-in"
+          className="group relative flex justify-center items-center gap-3 bg-white/10 hover:bg-white/20 disabled:opacity-50 shadow-lg hover:shadow-xl px-6 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 w-full overflow-hidden font-medium text-white hover:scale-[1.02] active:scale-[0.98] transition-all animate-in duration-200 duration-500 delay-400 disabled:cursor-not-allowed transform fade-in"
         >
           <FcGoogle size={20} />
-          {loading ? "Connecting..." : "Sign up with Google"}
+          <span className="z-10 relative">
+            {loading ? "Connecting..." : "Sign up with Google"}
+          </span>
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent transition-transform translate-x-[-100%] group-hover:translate-x-[100%] duration-1000" />
         </button>
       </div>
     </div>

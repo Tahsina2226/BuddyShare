@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { DashboardData } from "@/types/dashboard";
 import EventCard from "@/components/events/EventCard";
-import PaymentHistoryComponent from "@/App/payment/PaymentHistory";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -42,6 +41,10 @@ import {
   FiTarget,
   FiAward,
   FiGlobe,
+  FiDatabase,
+  FiLayers,
+  FiUserCheck,
+  FiUserX,
 } from "react-icons/fi";
 
 export default function DashboardPage() {
@@ -56,15 +59,22 @@ export default function DashboardPage() {
     "month"
   );
   const [activeTab, setActiveTab] = useState<
-    "overview" | "events" | "analytics" | "payments" | "hosting"
+    "overview" | "events" | "analytics" | "hosting" | "admin"
   >("overview");
   const [searchQuery, setSearchQuery] = useState("");
+  const [adminStats, setAdminStats] = useState({
+    totalUsers: 0,
+    totalEvents: 0,
+    totalHosts: 0,
+    totalAdmins: 0,
+    verifiedUsers: 0,
+    bannedUsers: 0,
+  });
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-
         const token = localStorage.getItem("token") || "";
 
         const joinedResponse = await fetch(
@@ -100,58 +110,59 @@ export default function DashboardPage() {
           }
         }
 
-        const notificationsResponse = await fetch(
-          "http://localhost:5000/api/notifications",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        let notifications = [];
-        if (notificationsResponse.ok) {
-          const notificationsData = await notificationsResponse.json();
-          notifications = notificationsData.data || [];
-        }
-
-        let paymentStats = {
-          totalSpent: 0,
-          succeededPayments: 0,
-          allPayments: [] as any[],
-          succeededPaymentsList: [] as any[],
+        let adminStatsData = { 
+          totalUsers: 0, 
+          totalEvents: 0,
+          totalHosts: 0,
+          totalAdmins: 0,
+          verifiedUsers: 0,
+          bannedUsers: 0,
         };
+        
+        if (user?.role === "admin") {
+          try {
+            const usersResponse = await fetch(
+              "http://localhost:5000/api/users",
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
 
-        try {
-          const paymentsResponse = await fetch(
-            "http://localhost:5000/api/payments/history",
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
+            if (usersResponse.ok) {
+              const usersData = await usersResponse.json();
+              if (usersData.success) {
+                const allUsers = usersData.data?.users || [];
+                adminStatsData.totalUsers = allUsers.length;
+                adminStatsData.totalHosts = allUsers.filter((u: any) => u.role === 'host').length;
+                adminStatsData.totalAdmins = allUsers.filter((u: any) => u.role === 'admin').length;
+                adminStatsData.verifiedUsers = allUsers.filter((u: any) => u.isVerified).length;
+                adminStatsData.bannedUsers = allUsers.filter((u: any) => u.isBanned).length;
+              }
             }
-          );
 
-          if (paymentsResponse.ok) {
-            const paymentsData = await paymentsResponse.json();
-            const allPayments = paymentsData.data?.payments || [];
-
-            const succeededPayments = allPayments.filter(
-              (p: any) => p.status === "succeeded" || p.status === "completed"
+            const allEventsResponse = await fetch(
+              "http://localhost:5000/api/events",
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }
             );
 
-            paymentStats.totalSpent = succeededPayments.reduce(
-              (sum: number, p: any) => sum + p.amount,
-              0
-            );
-
-            paymentStats.succeededPayments = succeededPayments.length;
-            paymentStats.allPayments = allPayments;
-            paymentStats.succeededPaymentsList = succeededPayments;
+            if (allEventsResponse.ok) {
+              const allEventsData = await allEventsResponse.json();
+              if (allEventsData.success) {
+                adminStatsData.totalEvents = allEventsData.data?.events?.length || 0;
+              }
+            }
+          } catch (adminError) {
+            console.warn("Could not fetch admin stats:", adminError);
           }
-        } catch (paymentError) {
-          console.warn("Could not fetch payment history:", paymentError);
         }
+
+        setAdminStats(adminStatsData);
 
         const today = new Date();
         const thirtyDaysFromNow = new Date();
@@ -179,14 +190,7 @@ export default function DashboardPage() {
           (event: any) => event.status === "completed"
         );
 
-        const avgSpending =
-          paymentStats.succeededPayments > 0
-            ? paymentStats.totalSpent / paymentStats.succeededPayments
-            : 0;
-
-        const hostEarnings = paymentStats.succeededPaymentsList
-          .filter((p: any) => p.event?.host === user?.id)
-          .reduce((sum: number, p: any) => sum + p.amount, 0);
+        const hostEarnings = 0;
 
         const reviewsFromEvents = hostedEvents.flatMap(
           (event: any) => event.reviews || []
@@ -216,29 +220,25 @@ export default function DashboardPage() {
           joinedEvents: joinedEvents.length,
           upcomingEvents: upcomingEvents.length,
           pastEvents: pastEvents.length,
-          totalSpent: paymentStats.totalSpent,
           hostEarnings: hostEarnings,
-          avgSpending: avgSpending,
           averageRating: parseFloat(averageRating.toFixed(1)),
           totalReviews: reviewsFromEvents.length,
           activeHostedEvents: activeHostedEvents.length,
           completedHostedEvents: completedHostedEvents.length,
           conversionRate: conversionRate,
           engagementRate: engagementRate,
-          notifications: notifications.length,
-          succeededPayments: paymentStats.succeededPayments,
-          pendingPayments: paymentStats.allPayments.filter(
-            (p: any) => p.status === "pending" || p.status === "processing"
-          ).length,
-          failedPayments: paymentStats.allPayments.filter(
-            (p: any) => p.status === "failed" || p.status === "canceled"
-          ).length,
+          totalUsers: adminStatsData.totalUsers,
+          totalEvents: adminStatsData.totalEvents,
+          totalHosts: adminStatsData.totalHosts,
+          totalAdmins: adminStatsData.totalAdmins,
+          verifiedUsers: adminStatsData.verifiedUsers,
+          bannedUsers: adminStatsData.bannedUsers,
         };
 
         const chartData = generateChartData(
           joinedEvents,
           hostedEvents,
-          paymentStats.succeededPaymentsList,
+          [],
           timeRange
         );
 
@@ -249,7 +249,6 @@ export default function DashboardPage() {
           hostedEvents: hostedEvents.slice(0, 3),
           activeHostedEvents: activeHostedEvents.slice(0, 3),
           pastEvents: pastEvents.slice(0, 3),
-          notifications: notifications.slice(0, 5),
         });
 
         setChartData(chartData);
@@ -299,23 +298,16 @@ export default function DashboardPage() {
       const date = new Date();
       date.setDate(date.getDate() - i);
 
-      const dayPayments = succeededPayments.filter((payment: any) => {
-        const paymentDate = new Date(payment.createdAt);
-        return paymentDate.toDateString() === date.toDateString();
-      });
-
-      const revenue = dayPayments.reduce((sum: number, payment: any) => {
-        return sum + payment.amount;
-      }, 0);
-
-      revenueData.push({
+      const revenueDataPoint = {
         date: date.toLocaleDateString("en-US", {
           month: "short",
           day: "numeric",
           ...(range === "year" && { month: "short" }),
         }),
-        revenue,
-      });
+        revenue: 0,
+      };
+
+      revenueData.push(revenueDataPoint);
     }
 
     const typeDistribution = hostedEvents.reduce((acc: any[], event: any) => {
@@ -331,24 +323,7 @@ export default function DashboardPage() {
       return acc;
     }, []);
 
-    const paymentActivity = succeededPayments
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      )
-      .slice(0, 5)
-      .map((payment: any) => ({
-        date: new Date(payment.createdAt).toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-        }),
-        title:
-          payment.event?.title ||
-          `Payment ${payment._id?.slice(-8) || payment.id?.slice(-8) || "N/A"}`,
-        type: payment.event?.host === user?.id ? "hosted" : "joined",
-        amount: payment.amount,
-        status: payment.status,
-      }));
+    const paymentActivity = [];
 
     const months = [
       "Jan",
@@ -530,6 +505,202 @@ export default function DashboardPage() {
     }
   };
 
+  const handleRoleChange = async (userId: string, newRole: string) => {
+    try {
+      const token = localStorage.getItem("token") || "";
+      const response = await fetch(`http://localhost:5000/api/users/${userId}/role`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ role: newRole })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setAdminStats(prev => {
+          const updatedStats = { ...prev };
+          if (newRole === 'host') {
+            updatedStats.totalHosts += 1;
+          } else if (newRole === 'admin') {
+            updatedStats.totalAdmins += 1;
+          }
+          return updatedStats;
+        });
+
+        toast.success(
+          <div className="flex items-center gap-3">
+            <div className="bg-[#96A78D]/20 p-2 rounded-lg">
+              <FiCheckCircle className="text-[#96A78D] text-xl" />
+            </div>
+            <div>
+              <p className="font-medium text-[#F5F0EB]">Role Updated</p>
+              <p className="text-[#D2C1B6]/70 text-sm">
+                User role changed to {newRole}
+              </p>
+            </div>
+          </div>,
+          {
+            duration: 3000,
+            position: "top-right",
+          }
+        );
+      } else {
+        throw new Error(data.message || 'Failed to update role');
+      }
+    } catch (err: any) {
+      toast.error(
+        <div className="flex items-center gap-3">
+          <div className="bg-[#9C6A50]/20 p-2 rounded-lg">
+            <FiAlertCircle className="text-[#9C6A50] text-xl" />
+          </div>
+          <div>
+            <p className="font-medium text-[#F5F0EB]">Update Failed</p>
+            <p className="text-[#D2C1B6]/70 text-sm">
+              {err.message || 'Failed to update user role'}
+            </p>
+          </div>
+        </div>,
+        {
+          duration: 4000,
+          position: "top-right",
+        }
+      );
+    }
+  };
+
+  const handleBanToggle = async (userId: string, currentStatus: boolean) => {
+    if (!confirm(`Are you sure you want to ${currentStatus ? 'unban' : 'ban'} this user?`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("token") || "";
+      const response = await fetch(`http://localhost:5000/api/admin/users/${userId}/ban`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ banned: !currentStatus })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setAdminStats(prev => ({
+          ...prev,
+          bannedUsers: currentStatus ? prev.bannedUsers - 1 : prev.bannedUsers + 1
+        }));
+
+        toast.success(
+          <div className="flex items-center gap-3">
+            <div className={`${currentStatus ? 'bg-[#96A78D]' : 'bg-[#9C6A50]'}/20 p-2 rounded-lg`}>
+              <FiCheckCircle className={`${currentStatus ? 'text-[#96A78D]' : 'text-[#9C6A50]'} text-xl`} />
+            </div>
+            <div>
+              <p className="font-medium text-[#F5F0EB]">
+                User {currentStatus ? 'Unbanned' : 'Banned'}
+              </p>
+              <p className="text-[#D2C1B6]/70 text-sm">
+                {currentStatus ? 'User can now access the platform' : 'User access has been restricted'}
+              </p>
+            </div>
+          </div>,
+          {
+            duration: 3000,
+            position: "top-right",
+          }
+        );
+      } else {
+        throw new Error(data.message || 'Failed to update user status');
+      }
+    } catch (err: any) {
+      toast.error(
+        <div className="flex items-center gap-3">
+          <div className="bg-[#9C6A50]/20 p-2 rounded-lg">
+            <FiAlertCircle className="text-[#9C6A50] text-xl" />
+          </div>
+          <div>
+            <p className="font-medium text-[#F5F0EB]">Action Failed</p>
+            <p className="text-[#D2C1B6]/70 text-sm">
+              {err.message || 'Failed to update user status'}
+            </p>
+          </div>
+        </div>,
+        {
+          duration: 4000,
+          position: "top-right",
+        }
+      );
+    }
+  };
+
+  const handleVerifyToggle = async (userId: string, currentStatus: boolean) => {
+    try {
+      const token = localStorage.getItem("token") || "";
+      const response = await fetch(`http://localhost:5000/api/admin/users/${userId}/verify`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ verified: !currentStatus })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setAdminStats(prev => ({
+          ...prev,
+          verifiedUsers: currentStatus ? prev.verifiedUsers - 1 : prev.verifiedUsers + 1
+        }));
+
+        toast.success(
+          <div className="flex items-center gap-3">
+            <div className={`${!currentStatus ? 'bg-[#96A78D]' : 'bg-[#D2C1B6]'}/20 p-2 rounded-lg`}>
+              <FiCheckCircle className={`${!currentStatus ? 'text-[#96A78D]' : 'text-[#D2C1B6]'} text-xl`} />
+            </div>
+            <div>
+              <p className="font-medium text-[#F5F0EB]">
+                User {!currentStatus ? 'Verified' : 'Unverified'}
+              </p>
+              <p className="text-[#D2C1B6]/70 text-sm">
+                {!currentStatus ? 'User verification completed' : 'User verification removed'}
+              </p>
+            </div>
+          </div>,
+          {
+            duration: 3000,
+            position: "top-right",
+          }
+        );
+      } else {
+        throw new Error(data.message || 'Failed to update verification');
+      }
+    } catch (err: any) {
+      toast.error(
+        <div className="flex items-center gap-3">
+          <div className="bg-[#9C6A50]/20 p-2 rounded-lg">
+            <FiAlertCircle className="text-[#9C6A50] text-xl" />
+          </div>
+          <div>
+            <p className="font-medium text-[#F5F0EB]">Action Failed</p>
+            <p className="text-[#D2C1B6]/70 text-sm">
+              {err.message || 'Failed to update verification'}
+            </p>
+          </div>
+        </div>,
+        {
+          duration: 4000,
+          position: "top-right",
+        }
+      );
+    }
+  };
+
   if (loading) {
     return (
       <>
@@ -614,6 +785,7 @@ export default function DashboardPage() {
   }
 
   const isHostOrAdmin = user?.role === "host" || user?.role === "admin";
+  const isAdmin = user?.role === "admin";
   const citiesVisited = new Set(
     dashboardData.recentEvents
       .map((event: any) => event.location)
@@ -653,6 +825,7 @@ export default function DashboardPage() {
                       <span className="font-medium text-[#D2C1B6]">
                         {user?.name}
                       </span>
+                      {isAdmin && " (Administrator)"}
                     </p>
                   </div>
                 </div>
@@ -665,21 +838,12 @@ export default function DashboardPage() {
                   </div>
                   <input
                     type="text"
-                    placeholder="Search events, payments..."
+                    placeholder="Search events..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="bg-white/5 backdrop-blur-sm py-2 pr-4 pl-10 border border-white/10 focus:border-[#96A78D]/50 rounded-xl focus:outline-none w-64 text-white placeholder-[#F5F0EB]/50"
                   />
                 </div>
-
-                <button className="relative bg-white/5 hover:bg-white/10 backdrop-blur-sm p-2 rounded-lg transition-all">
-                  <FiBell className="text-[#F5F0EB]" />
-                  {dashboardData.stats.notifications > 0 && (
-                    <span className="-top-1 -right-1 absolute flex justify-center items-center bg-gradient-to-r from-[#9C6A50] to-[#D2C1B6] rounded-full w-5 h-5 font-medium text-white text-xs">
-                      {dashboardData.stats.notifications}
-                    </span>
-                  )}
-                </button>
 
                 <Link
                   href={`/profile/${user?.id}`}
@@ -744,6 +908,15 @@ export default function DashboardPage() {
                   <span className="hidden sm:inline">Create Event</span>
                 </Link>
               )}
+              {isAdmin && (
+                <Link
+                  href="/admin/users"
+                  className="flex items-center gap-2 bg-gradient-to-r from-[#9C6A50]/30 hover:from-[#9C6A50]/40 to-[#D2C1B6]/30 hover:to-[#D2C1B6]/40 px-4 py-2 border border-[#D2C1B6]/50 rounded-xl text-[#F5F0EB] transition-all"
+                >
+                  <FiUsers />
+                  <span className="hidden sm:inline">Manage Users</span>
+                </Link>
+              )}
             </div>
           </div>
 
@@ -753,7 +926,65 @@ export default function DashboardPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ staggerChildren: 0.1 }}
           >
-            {[
+            {isAdmin && [
+              {
+                label: "Total Users",
+                value: adminStats.totalUsers.toString(),
+                icon: FiUsers,
+                gradient: "from-[#9C6A50] to-[#B88C75]",
+                change: `${adminStats.verifiedUsers} verified`,
+              },
+              {
+                label: "Total Events",
+                value: adminStats.totalEvents.toString(),
+                icon: FiLayers,
+                gradient: "from-[#234C6A] to-[#2E5A7A]",
+                change: `${adminStats.totalHosts} hosts`,
+              },
+              {
+                label: "Hosts",
+                value: adminStats.totalHosts.toString(),
+                icon: FiTarget,
+                gradient: "from-[#96A78D] to-[#7E9175]",
+                change: `${adminStats.totalAdmins} admins`,
+              },
+              {
+                label: "Banned Users",
+                value: adminStats.bannedUsers.toString(),
+                icon: FiUserX,
+                gradient: "from-[#D2C1B6] to-[#B8A79C]",
+                change: `${adminStats.verifiedUsers} verified`,
+              },
+            ].map((stat, index) => (
+              <motion.div
+                key={stat.label}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="group relative bg-gradient-to-br from-white/5 to-white/[0.02] shadow-lg backdrop-blur-sm p-6 border border-white/10 hover:border-white/20 rounded-2xl overflow-hidden hover:scale-[1.02] transition-all duration-300"
+              >
+                <div className="relative">
+                  <div className="flex justify-between items-start mb-4">
+                    <div
+                      className={`p-3 rounded-xl bg-gradient-to-br ${stat.gradient}/20 shadow-md`}
+                    >
+                      <stat.icon className="text-white text-xl" />
+                    </div>
+                    <div className="bg-white/10 backdrop-blur-sm px-2 py-1 rounded-full text-white/70 text-xs">
+                      {stat.change}
+                    </div>
+                  </div>
+                  <div className="mb-1 font-bold text-white text-3xl">
+                    {stat.value}
+                  </div>
+                  <div className="mb-4 text-white/70 text-sm">{stat.label}</div>
+                </div>
+                <div
+                  className={`absolute -bottom-8 -right-8 bg-gradient-to-br ${stat.gradient} opacity-10 w-24 h-24 rounded-full group-hover:scale-125 transition-transform duration-300`}
+                ></div>
+              </motion.div>
+            ))}
+
+            {!isAdmin && [
               {
                 label: "Upcoming Events",
                 value: dashboardData.stats.upcomingEvents.toString(),
@@ -775,14 +1006,14 @@ export default function DashboardPage() {
                     : "Start joining",
               },
               {
-                label: "Total Spent",
-                value: formatCurrency(dashboardData.stats.totalSpent),
-                icon: FiDollarSign,
+                label: "Active Events",
+                value: dashboardData.stats.activeHostedEvents.toString(),
+                icon: FiActivity,
                 gradient: "from-[#D2C1B6] to-[#B8A79C]",
                 change:
-                  dashboardData.stats.succeededPayments > 0
-                    ? `${dashboardData.stats.succeededPayments} payments`
-                    : "No payments yet",
+                  dashboardData.stats.activeHostedEvents > 0
+                    ? `${dashboardData.stats.activeHostedEvents} active`
+                    : "No active events",
               },
               ...(isHostOrAdmin
                 ? [
@@ -796,14 +1027,14 @@ export default function DashboardPage() {
                   ]
                 : [
                     {
-                      label: "Successful Payments",
-                      value: `${dashboardData.stats.succeededPayments}`,
-                      icon: FiCreditCard,
+                      label: "Total Reviews",
+                      value: dashboardData.stats.totalReviews.toString(),
+                      icon: FiStar,
                       gradient: "from-[#234C6A] to-[#96A78D]",
                       change:
-                        dashboardData.stats.succeededPayments > 0
-                          ? "All completed"
-                          : "No payments yet",
+                        dashboardData.stats.totalReviews > 0
+                          ? "Reviews received"
+                          : "No reviews yet",
                     },
                   ]),
             ].map((stat, index) => (
@@ -844,7 +1075,7 @@ export default function DashboardPage() {
                     {[
                       { id: "overview", label: "Overview", icon: FiGrid },
                       { id: "events", label: "My Events", icon: FiCalendar },
-                      ...(isHostOrAdmin
+                      ...(isHostOrAdmin && !isAdmin
                         ? [
                             { id: "hosting", label: "Hosting", icon: FiTarget },
                             {
@@ -854,7 +1085,15 @@ export default function DashboardPage() {
                             },
                           ]
                         : []),
-                      { id: "payments", label: "Payments", icon: FiDollarSign },
+                      ...(isAdmin
+                        ? [
+                            {
+                              id: "admin",
+                              label: "Admin",
+                              icon: FiDatabase,
+                            },
+                          ]
+                        : []),
                     ].map((tab) => (
                       <button
                         key={tab.id}
@@ -875,41 +1114,94 @@ export default function DashboardPage() {
                 <div className="p-6">
                   {activeTab === "overview" && (
                     <div className="space-y-8">
-                      {isHostOrAdmin &&
-                        dashboardData.stats.hostEarnings > 0 && (
-                          <div className="bg-white/5 backdrop-blur-sm p-6 border border-white/10 rounded-2xl">
-                            <div className="flex md:flex-row flex-col justify-between items-start md:items-center gap-4 mb-6">
-                              <div>
-                                <h3 className="mb-1 font-bold text-white text-lg">
-                                  Revenue Overview
-                                </h3>
-                                <p className="text-white/60 text-sm">
-                                  {timeRange.charAt(0).toUpperCase() +
-                                    timeRange.slice(1)}
-                                  ly earnings
-                                </p>
+                      {isAdmin && (
+                        <div className="bg-gradient-to-r from-[#9C6A50]/10 to-[#D2C1B6]/10 shadow-xl backdrop-blur-sm p-6 border border-[#9C6A50]/20 rounded-2xl">
+                          <h3 className="mb-4 font-bold text-white text-lg">
+                            Platform Overview
+                          </h3>
+                          <div className="gap-4 grid grid-cols-2 md:grid-cols-4">
+                            <div className="text-center">
+                              <div className="mb-2 font-bold text-white text-2xl">
+                                {adminStats.totalUsers}
                               </div>
-                              <div className="text-right">
-                                <div className="font-bold text-white text-2xl">
-                                  {formatCurrency(
-                                    dashboardData.stats.hostEarnings
-                                  )}
-                                </div>
-                                <div className="flex items-center text-[#96A78D] text-sm">
-                                  <FiTrendingUp className="mr-1" />
-                                  From{" "}
-                                  {
-                                    dashboardData.stats.completedHostedEvents
-                                  }{" "}
-                                  events
-                                </div>
+                              <div className="text-white/70 text-sm">
+                                Total Users
                               </div>
                             </div>
-                            <div className="h-64">
-                              <RevenueChart data={chartData.revenueData} />
+                            <div className="text-center">
+                              <div className="mb-2 font-bold text-white text-2xl">
+                                {adminStats.totalEvents}
+                              </div>
+                              <div className="text-white/70 text-sm">
+                                Total Events
+                              </div>
+                            </div>
+                            <div className="text-center">
+                              <div className="mb-2 font-bold text-white text-2xl">
+                                {adminStats.verifiedUsers}
+                              </div>
+                              <div className="text-white/70 text-sm">
+                                Verified Users
+                              </div>
+                            </div>
+                            <div className="text-center">
+                              <div className="mb-2 font-bold text-white text-2xl">
+                                {adminStats.bannedUsers}
+                              </div>
+                              <div className="text-white/70 text-sm">
+                                Banned Users
+                              </div>
                             </div>
                           </div>
-                        )}
+                          <div className="mt-6 flex gap-4">
+                            <Link
+                              href="/admin/users"
+                              className="flex-1 text-center bg-gradient-to-r from-[#234C6A] hover:from-[#2E5A7A] to-[#96A78D] hover:to-[#7E9175] shadow-lg px-4 py-2 rounded-xl font-medium text-white transition-all"
+                            >
+                              Manage Users
+                            </Link>
+                            <Link
+                              href="/admin/events"
+                              className="flex-1 text-center bg-white/10 hover:bg-white/20 px-4 py-2 border border-white/20 rounded-xl text-white transition-all"
+                            >
+                              Manage Events
+                            </Link>
+                          </div>
+                        </div>
+                      )}
+
+                      {isHostOrAdmin && dashboardData.stats.hostEarnings > 0 && (
+                        <div className="bg-white/5 backdrop-blur-sm p-6 border border-white/10 rounded-2xl">
+                          <div className="flex md:flex-row flex-col justify-between items-start md:items-center gap-4 mb-6">
+                            <div>
+                              <h3 className="mb-1 font-bold text-white text-lg">
+                                Revenue Overview
+                              </h3>
+                              <p className="text-white/60 text-sm">
+                                {timeRange.charAt(0).toUpperCase() +
+                                  timeRange.slice(1)}
+                                ly earnings
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-bold text-white text-2xl">
+                                {formatCurrency(
+                                  dashboardData.stats.hostEarnings
+                                )}
+                              </div>
+                              <div className="flex items-center text-[#96A78D] text-sm">
+                                <FiTrendingUp className="mr-1" />
+                                From{" "}
+                                {dashboardData.stats.completedHostedEvents}{" "}
+                                events
+                              </div>
+                            </div>
+                          </div>
+                          <div className="h-64">
+                            <RevenueChart data={chartData.revenueData} />
+                          </div>
+                        </div>
+                      )}
 
                       <div className="gap-6 grid grid-cols-1 md:grid-cols-2">
                         {isHostOrAdmin &&
@@ -994,107 +1286,172 @@ export default function DashboardPage() {
                     </div>
                   )}
 
-                  {activeTab === "analytics" && isHostOrAdmin && (
+                  {activeTab === "admin" && isAdmin && (
                     <div className="space-y-8">
-                      <div className="gap-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                        {[
-                          {
-                            label: "Conversion Rate",
-                            value: `${dashboardData.stats.conversionRate}%`,
-                            icon: FiTrendingUp,
-                            color: "text-[#96A78D]",
-                          },
-                          {
-                            label: "Engagement Rate",
-                            value: `${dashboardData.stats.engagementRate}%`,
-                            icon: FiUsers,
-                            color: "text-[#D2C1B6]",
-                          },
-                          {
-                            label: "Avg. Rating",
-                            value: dashboardData.stats.averageRating || "N/A",
-                            icon: FiStar,
-                            color: "text-[#F5F0EB]",
-                          },
-                          {
-                            label: "Event Completion",
-                            value: `${dashboardData.stats.completedHostedEvents}/${dashboardData.stats.hostedEvents}`,
-                            icon: FiCheckCircle,
-                            color: "text-[#96A78D]",
-                          },
-                          {
-                            label: "Active Events",
-                            value: dashboardData.stats.activeHostedEvents,
-                            icon: FiActivity,
-                            color: "text-[#D2C1B6]",
-                          },
-                          {
-                            label: "Total Revenue",
-                            value: formatCurrency(
-                              dashboardData.stats.hostEarnings
-                            ),
-                            icon: FiDollarSign,
-                            color: "text-[#F5F0EB]",
-                          },
-                        ].map((metric, index) => (
-                          <div
-                            key={metric.label}
-                            className="bg-white/5 backdrop-blur-sm p-6 border border-white/10 hover:border-white/20 rounded-xl transition-all"
-                          >
-                            <div className="flex justify-between items-center mb-4">
-                              <div
-                                className={`p-2 rounded-lg ${metric.color}/20`}
-                              >
-                                <metric.icon
-                                  className={`text-xl ${metric.color}`}
-                                />
+                      <div className="gap-6 grid grid-cols-1 md:grid-cols-3">
+                        <div className="bg-gradient-to-r from-[#9C6A50]/10 to-[#D2C1B6]/10 shadow-xl backdrop-blur-sm p-6 border border-[#9C6A50]/20 rounded-2xl">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="bg-[#9C6A50]/20 p-3 rounded-xl">
+                              <FiUsers className="text-[#D2C1B6] text-xl" />
+                            </div>
+                            <div>
+                              <div className="font-bold text-white text-2xl">
+                                {adminStats.totalUsers}
+                              </div>
+                              <div className="text-white/70 text-sm">
+                                Total Users
                               </div>
                             </div>
-                            <div className="mb-1 font-bold text-white text-2xl">
-                              {metric.value}
-                            </div>
-                            <div className="text-white/60 text-sm">
-                              {metric.label}
-                            </div>
                           </div>
-                        ))}
-                      </div>
-
-                      <div className="bg-white/5 backdrop-blur-sm p-6 border border-white/10 rounded-2xl">
-                        <div className="flex md:flex-row flex-col justify-between items-start md:items-center gap-4 mb-6">
-                          <div>
-                            <h3 className="font-bold text-white text-lg">
-                              Events Comparison
-                            </h3>
-                            <p className="text-white/60 text-sm">
-                              Joined vs Hosted events over time
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2">
-                              <div className="bg-[#234C6A] rounded-full w-3 h-3"></div>
-                              <span className="text-white/70 text-sm">
-                                Joined
-                              </span>
+                          <div className="text-white/70 text-sm">
+                            <div className="flex justify-between py-1">
+                              <span>Hosts:</span>
+                              <span className="font-medium">{adminStats.totalHosts}</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <div className="bg-[#96A78D] rounded-full w-3 h-3"></div>
-                              <span className="text-white/70 text-sm">
-                                Hosted
-                              </span>
+                            <div className="flex justify-between py-1">
+                              <span>Admins:</span>
+                              <span className="font-medium">{adminStats.totalAdmins}</span>
+                            </div>
+                            <div className="flex justify-between py-1">
+                              <span>Verified:</span>
+                              <span className="font-medium">{adminStats.verifiedUsers}</span>
                             </div>
                           </div>
                         </div>
-                        <div className="h-80">
-                          <ComparisonChart
-                            labels={chartData.statsComparison.labels}
-                            joinedData={
-                              chartData.statsComparison.datasets[0].data
-                            }
-                            hostedData={
-                              chartData.statsComparison.datasets[1].data
-                            }
-                          />
+
+                        <div className="bg-gradient-to-r from-[#234C6A]/10 to-[#96A78D]/10 shadow-xl backdrop-blur-sm p-6 border border-[#96A78D]/20 rounded-2xl">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="bg-[#234C6A]/20 p-3 rounded-xl">
+                              <FiLayers className="text-[#96A78D] text-xl" />
+                            </div>
+                            <div>
+                              <div className="font-bold text-white text-2xl">
+                                {adminStats.totalEvents}
+                              </div>
+                              <div className="text-white/70 text-sm">
+                                Total Events
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-white/70 text-sm">
+                            <div className="flex justify-between py-1">
+                              <span>Active Events:</span>
+                              <span className="font-medium">{dashboardData.stats.activeHostedEvents}</span>
+                            </div>
+                            <div className="flex justify-between py-1">
+                              <span>Completed Events:</span>
+                              <span className="font-medium">{dashboardData.stats.completedHostedEvents}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-gradient-to-r from-[#D2C1B6]/10 to-white/10 shadow-xl backdrop-blur-sm p-6 border border-white/20 rounded-2xl">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="bg-[#D2C1B6]/20 p-3 rounded-xl">
+                              <FiActivity className="text-white text-xl" />
+                            </div>
+                            <div>
+                              <div className="font-bold text-white text-2xl">
+                                {adminStats.bannedUsers}
+                              </div>
+                              <div className="text-white/70 text-sm">
+                                Banned Users
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-white/70 text-sm">
+                            <div className="flex justify-between py-1">
+                              <span>User Activity:</span>
+                              <span className="font-medium">{dashboardData.stats.joinedEvents}</span>
+                            </div>
+                            <div className="flex justify-between py-1">
+                              <span>Upcoming Events:</span>
+                              <span className="font-medium">{dashboardData.stats.upcomingEvents}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="gap-6 grid grid-cols-1 md:grid-cols-2">
+                        <div className="bg-white/5 backdrop-blur-sm p-6 border border-white/10 rounded-2xl">
+                          <h4 className="mb-4 font-bold text-white">
+                            User Management
+                          </h4>
+                          <div className="space-y-3">
+                            <Link
+                              href="/admin/users"
+                              className="flex items-center justify-between bg-white/5 hover:bg-white/10 p-4 rounded-xl transition-all"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="bg-[#234C6A]/20 p-2 rounded-lg">
+                                  <FiUsers className="text-[#96A78D]" />
+                                </div>
+                                <div>
+                                  <div className="font-medium text-white">All Users</div>
+                                  <div className="text-white/60 text-sm">
+                                    View and manage all platform users
+                                  </div>
+                                </div>
+                              </div>
+                              <FiGlobe className="text-white/50" />
+                            </Link>
+                            <div className="flex gap-3">
+                              <button
+                                onClick={() => handleRoleChange("sample-id", "host")}
+                                className="flex-1 text-center bg-[#96A78D]/20 hover:bg-[#96A78D]/30 py-2 border border-[#96A78D]/50 rounded-xl text-[#D2C1B6] transition-all"
+                              >
+                                Promote to Host
+                              </button>
+                              <button
+                                onClick={() => handleVerifyToggle("sample-id", false)}
+                                className="flex-1 text-center bg-[#D2C1B6]/20 hover:bg-[#D2C1B6]/30 py-2 border border-[#D2C1B6]/50 rounded-xl text-white transition-all"
+                              >
+                                Verify User
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-white/5 backdrop-blur-sm p-6 border border-white/10 rounded-2xl">
+                          <h4 className="mb-4 font-bold text-white">
+                            Event Management
+                          </h4>
+                          <div className="space-y-3">
+                            <Link
+                              href="/admin/events"
+                              className="flex items-center justify-between bg-white/5 hover:bg-white/10 p-4 rounded-xl transition-all"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="bg-[#9C6A50]/20 p-2 rounded-lg">
+                                  <FiCalendar className="text-[#D2C1B6]" />
+                                </div>
+                                <div>
+                                  <div className="font-medium text-white">All Events</div>
+                                  <div className="text-white/60 text-sm">
+                                    Monitor and manage all platform events
+                                  </div>
+                                </div>
+                              </div>
+                              <FiGlobe className="text-white/50" />
+                            </Link>
+                            <Link
+                              href="/admin/reports"
+                              className="flex items-center justify-between bg-white/5 hover:bg-white/10 p-4 rounded-xl transition-all"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="bg-[#234C6A]/20 p-2 rounded-lg">
+                                  <FiBarChart2 className="text-[#96A78D]" />
+                                </div>
+                                <div>
+                                  <div className="font-medium text-white">Reports</div>
+                                  <div className="text-white/60 text-sm">
+                                    View platform analytics and reports
+                                  </div>
+                                </div>
+                              </div>
+                              <FiGlobe className="text-white/50" />
+                            </Link>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1190,7 +1547,7 @@ export default function DashboardPage() {
                     </div>
                   )}
 
-                  {activeTab === "hosting" && isHostOrAdmin && (
+                  {activeTab === "hosting" && isHostOrAdmin && !isAdmin && (
                     <div className="space-y-8">
                       <div className="bg-white/5 backdrop-blur-sm p-6 border border-white/10 rounded-2xl">
                         <h3 className="mb-6 font-bold text-white">
@@ -1279,9 +1636,109 @@ export default function DashboardPage() {
                     </div>
                   )}
 
-                  {activeTab === "payments" && (
-                    <div>
-                      <PaymentHistoryComponent />
+                  {activeTab === "analytics" && isHostOrAdmin && !isAdmin && (
+                    <div className="space-y-8">
+                      <div className="gap-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                        {[
+                          {
+                            label: "Conversion Rate",
+                            value: `${dashboardData.stats.conversionRate}%`,
+                            icon: FiTrendingUp,
+                            color: "text-[#96A78D]",
+                          },
+                          {
+                            label: "Engagement Rate",
+                            value: `${dashboardData.stats.engagementRate}%`,
+                            icon: FiUsers,
+                            color: "text-[#D2C1B6]",
+                          },
+                          {
+                            label: "Avg. Rating",
+                            value: dashboardData.stats.averageRating || "N/A",
+                            icon: FiStar,
+                            color: "text-[#F5F0EB]",
+                          },
+                          {
+                            label: "Event Completion",
+                            value: `${dashboardData.stats.completedHostedEvents}/${dashboardData.stats.hostedEvents}`,
+                            icon: FiCheckCircle,
+                            color: "text-[#96A78D]",
+                          },
+                          {
+                            label: "Active Events",
+                            value: dashboardData.stats.activeHostedEvents,
+                            icon: FiActivity,
+                            color: "text-[#D2C1B6]",
+                          },
+                          {
+                            label: "Host Earnings",
+                            value: formatCurrency(
+                              dashboardData.stats.hostEarnings
+                            ),
+                            icon: FiDollarSign,
+                            color: "text-[#F5F0EB]",
+                          },
+                        ].map((metric, index) => (
+                          <div
+                            key={metric.label}
+                            className="bg-white/5 backdrop-blur-sm p-6 border border-white/10 hover:border-white/20 rounded-xl transition-all"
+                          >
+                            <div className="flex justify-between items-center mb-4">
+                              <div
+                                className={`p-2 rounded-lg ${metric.color}/20`}
+                              >
+                                <metric.icon
+                                  className={`text-xl ${metric.color}`}
+                                />
+                              </div>
+                            </div>
+                            <div className="mb-1 font-bold text-white text-2xl">
+                              {metric.value}
+                            </div>
+                            <div className="text-white/60 text-sm">
+                              {metric.label}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="bg-white/5 backdrop-blur-sm p-6 border border-white/10 rounded-2xl">
+                        <div className="flex md:flex-row flex-col justify-between items-start md:items-center gap-4 mb-6">
+                          <div>
+                            <h3 className="font-bold text-white text-lg">
+                              Events Comparison
+                            </h3>
+                            <p className="text-white/60 text-sm">
+                              Joined vs Hosted events over time
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2">
+                              <div className="bg-[#234C6A] rounded-full w-3 h-3"></div>
+                              <span className="text-white/70 text-sm">
+                                Joined
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="bg-[#96A78D] rounded-full w-3 h-3"></div>
+                              <span className="text-white/70 text-sm">
+                                Hosted
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="h-80">
+                          <ComparisonChart
+                            labels={chartData.statsComparison.labels}
+                            joinedData={
+                              chartData.statsComparison.datasets[0].data
+                            }
+                            hostedData={
+                              chartData.statsComparison.datasets[1].data
+                            }
+                          />
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1323,6 +1780,15 @@ export default function DashboardPage() {
                     <span className="text-white">Settings</span>
                     <FiSettings className="text-white/50" />
                   </Link>
+                  {isAdmin && (
+                    <Link
+                      href="/admin/users"
+                      className="flex justify-between items-center bg-[#9C6A50]/10 hover:bg-[#9C6A50]/20 p-3 rounded-lg transition-all"
+                    >
+                      <span className="text-[#D2C1B6]">Admin Panel</span>
+                      <FiDatabase className="text-[#D2C1B6]" />
+                    </Link>
+                  )}
                   <button
                     onClick={handleLogout}
                     className="flex justify-between items-center bg-gradient-to-r from-[#9C6A50]/10 hover:from-[#9C6A50]/20 to-[#D2C1B6]/10 hover:to-[#D2C1B6]/20 p-3 rounded-lg w-full text-[#D2C1B6] transition-all"
@@ -1332,51 +1798,6 @@ export default function DashboardPage() {
                   </button>
                 </div>
               </div>
-
-              {dashboardData.notifications &&
-                dashboardData.notifications.length > 0 && (
-                  <div className="bg-gradient-to-b from-white/5 to-white/[0.02] shadow-xl backdrop-blur-sm p-6 border border-white/10 rounded-2xl">
-                    <div className="flex justify-between items-center mb-6">
-                      <h3 className="font-bold text-white">Notifications</h3>
-                      <FiBell className="text-white/50" />
-                    </div>
-                    <div className="space-y-4">
-                      {dashboardData.notifications
-                        .slice(0, 3)
-                        .map((notification: any, index: number) => (
-                          <div
-                            key={index}
-                            className="bg-white/5 hover:bg-white/10 p-3 rounded-lg transition-all"
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className="bg-[#234C6A]/20 p-2 rounded-lg">
-                                <FiBell className="text-[#96A78D]" />
-                              </div>
-                              <div className="flex-1">
-                                <div className="text-white text-sm">
-                                  {notification.message}
-                                </div>
-                                <div className="mt-1 text-white/40 text-xs">
-                                  {new Date(
-                                    notification.createdAt
-                                  ).toLocaleTimeString([], {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                    </div>
-                    <Link
-                      href="/notifications"
-                      className="block mt-4 text-[#D2C1B6] hover:text-[#F5F0EB] text-sm text-center"
-                    >
-                      View all notifications
-                    </Link>
-                  </div>
-                )}
 
               <div className="bg-gradient-to-b from-[#9C6A50]/10 to-[#D2C1B6]/10 shadow-xl backdrop-blur-sm p-6 border border-[#9C6A50]/20 rounded-2xl">
                 <div className="flex items-center gap-3 mb-4">
@@ -1409,26 +1830,72 @@ export default function DashboardPage() {
             <div className="flex md:flex-row flex-col justify-between items-center gap-6">
               <div>
                 <h3 className="mb-2 font-bold text-white text-lg">
-                  Ready to host your own event?
+                  {isAdmin 
+                    ? "Platform Management Tools"
+                    : isHostOrAdmin
+                    ? "Ready to host your own event?"
+                    : "Ready to join your next adventure?"
+                  }
                 </h3>
                 <p className="text-white/70">
-                  Share your passion and connect with like-minded people.
+                  {isAdmin
+                    ? "Access comprehensive tools to manage users, events, and platform analytics."
+                    : isHostOrAdmin
+                    ? "Share your passion and connect with like-minded people."
+                    : "Discover amazing events and connect with people who share your interests."
+                  }
                 </p>
               </div>
               <div className="flex gap-4">
-                <Link
-                  href="/events/create"
-                  className="inline-flex items-center gap-2 bg-gradient-to-r from-[#234C6A] hover:from-[#2E5A7A] to-[#96A78D] hover:to-[#7E9175] shadow-lg px-6 py-3 rounded-xl font-medium text-white transition-all"
-                >
-                  <FiPlus />
-                  Create Event
-                </Link>
-                <Link
-                  href="/learn-hosting"
-                  className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 px-6 py-3 border border-white/20 rounded-xl text-white transition-all"
-                >
-                  Learn More
-                </Link>
+                {isAdmin ? (
+                  <>
+                    <Link
+                      href="/admin/users"
+                      className="inline-flex items-center gap-2 bg-gradient-to-r from-[#234C6A] hover:from-[#2E5A7A] to-[#96A78D] hover:to-[#7E9175] shadow-lg px-6 py-3 rounded-xl font-medium text-white transition-all"
+                    >
+                      <FiUsers />
+                      Manage Users
+                    </Link>
+                    <Link
+                      href="/admin/events"
+                      className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 px-6 py-3 border border-white/20 rounded-xl text-white transition-all"
+                    >
+                      Manage Events
+                    </Link>
+                  </>
+                ) : isHostOrAdmin ? (
+                  <>
+                    <Link
+                      href="/events/create"
+                      className="inline-flex items-center gap-2 bg-gradient-to-r from-[#234C6A] hover:from-[#2E5A7A] to-[#96A78D] hover:to-[#7E9175] shadow-lg px-6 py-3 rounded-xl font-medium text-white transition-all"
+                    >
+                      <FiPlus />
+                      Create Event
+                    </Link>
+                    <Link
+                      href="/learn-hosting"
+                      className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 px-6 py-3 border border-white/20 rounded-xl text-white transition-all"
+                    >
+                      Learn More
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/events"
+                      className="inline-flex items-center gap-2 bg-gradient-to-r from-[#234C6A] hover:from-[#2E5A7A] to-[#96A78D] hover:to-[#7E9175] shadow-lg px-6 py-3 rounded-xl font-medium text-white transition-all"
+                    >
+                      <FiGlobe />
+                      Find Events
+                    </Link>
+                    <Link
+                      href="/how-it-works"
+                      className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 px-6 py-3 border border-white/20 rounded-xl text-white transition-all"
+                    >
+                      Learn More
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>

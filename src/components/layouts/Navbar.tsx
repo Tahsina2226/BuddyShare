@@ -25,6 +25,7 @@ import {
   FiActivity,
   FiPieChart,
   FiTarget,
+  FiAward, // নতুন আইকন যোগ করা হলো
 } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 
@@ -174,9 +175,30 @@ export default function Navbar() {
     }
   };
 
+  // Host Application ফর্মের URL
+  const getBecomeHostUrl = (): string => {
+    if (!currentUser) {
+      return "/auth/login";
+    }
+    
+    // User role হলে Host Application পেজে নিয়ে যাবে
+    if (currentUser.role === "user") {
+      return "/host/apply";
+    }
+    
+    // যদি ইতিমধ্যে Host হয়ে থাকে, তাহলে Host Dashboard-এ নিয়ে যাবে
+    if (currentUser.role === "host") {
+      return "/host/dashboard";
+    }
+    
+    // Admin এর জন্য Host Application এর প্রয়োজন নেই
+    return "/dashboard";
+  };
+
   const getMenuItems = () => {
     const profileUrl = getProfileUrl();
     const dashboardUrl = getDashboardUrl();
+    const becomeHostUrl = getBecomeHostUrl();
     
     const commonItems = [
       {
@@ -207,7 +229,14 @@ export default function Navbar() {
       },
     ];
 
+    // User role এর জন্য Become Host আইটেম যোগ করা হলো
     const userSpecificItems = [
+      {
+        label: "Become a Host",
+        icon: <FiAward className="w-4 h-4" />,
+        link: becomeHostUrl,
+        highlight: currentUser?.role === "user",
+      },
       {
         label: "My Activity",
         icon: <FiActivity className="w-4 h-4" />,
@@ -246,6 +275,11 @@ export default function Navbar() {
         icon: <FiGrid className="w-4 h-4" />,
         link: "/host/dashboard",
         highlight: true,
+      },
+      {
+        label: "Create Event",
+        icon: <FiPlusCircle className="w-4 h-4" />,
+        link: "/events/create",
       },
       {
         label: "Participants",
@@ -290,6 +324,11 @@ export default function Navbar() {
         label: "Event Management",
         icon: <FiCalendar className="w-4 h-4" />,
         link: "/admin/events",
+      },
+      {
+        label: "Host Applications",
+        icon: <FiAward className="w-4 h-4" />,
+        link: "/admin/host-applications",
       },
       {
         label: "System Analytics",
@@ -429,8 +468,16 @@ export default function Navbar() {
 
             {displayUser ? (
               <>
+                {/* User Role এর জন্য Become a Host লিংক যোগ করা হলো */}
                 {displayUser.role === "user" && (
                   <>
+                    <Link
+                      href={getBecomeHostUrl()}
+                      className="flex items-center space-x-2 bg-gradient-to-r from-purple-500/20 hover:from-purple-500/30 to-pink-500/10 hover:to-pink-500/20 px-4 py-2 border border-purple-500/30 rounded-lg text-white hover:scale-105 transition-all duration-200"
+                    >
+                      <FiAward />
+                      <span>Become a Host</span>
+                    </Link>
                     <Link
                       href="/my-events"
                       className="flex items-center space-x-2 text-white/90 hover:text-white hover:scale-105 transition-all duration-200"
@@ -491,8 +538,15 @@ export default function Navbar() {
                       <span>Manage Events</span>
                     </Link>
                     <Link
-                      href={getProfileUrl()}
+                      href="/admin/host-applications"
                       className="flex items-center space-x-2 text-white/90 hover:text-white hover:scale-105 transition-all duration-200"
+                    >
+                      <FiAward />
+                      <span>Host Applications</span>
+                    </Link>
+                    <Link
+                      href={getProfileUrl()}
+                      className="flex items-center space-x-2 text-white/90 hover:text-white hover-scale-105 transition-all duration-200"
                     >
                       <FiUser />
                       <span>Profile</span>
@@ -562,6 +616,7 @@ export default function Navbar() {
                 </div>
               </>
             ) : (
+              // Logged Out State
               <>
                 <Link
                   href="/become-host"
@@ -661,7 +716,7 @@ export default function Navbar() {
               {displayUser && (
                 <Link
                   href={getDashboardUrl()}
-                  className="flex items-center space-x-3 bg-gradient-to-r from-white/15 to-white/10 hover:from-white/20 hover:to-white/15 px-4 py-3 rounded-lg text-white transition-all duration-200"
+                  className="flex items-center space-x-3 bg-gradient-to-r from-white/15 hover:from-white/20 to-white/10 hover:to-white/15 px-4 py-3 rounded-lg text-white transition-all duration-200"
                   onClick={() => setIsOpen(false)}
                 >
                   <FiGrid />
@@ -680,6 +735,18 @@ export default function Navbar() {
 
               {displayUser ? (
                 <>
+                  {/* Mobile View এও User role এর জন্য Become Host যোগ করা হলো */}
+                  {displayUser.role === "user" && (
+                    <Link
+                      href={getBecomeHostUrl()}
+                      className="flex items-center space-x-3 bg-gradient-to-r from-purple-500/20 hover:from-purple-500/30 to-pink-500/10 hover:to-pink-500/20 px-4 py-3 border border-purple-500/30 rounded-lg text-white transition-all duration-200"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      <FiAward />
+                      <span>Become a Host</span>
+                    </Link>
+                  )}
+
                   {displayUser.role === "user" && (
                     <Link
                       href="/my-events"
@@ -730,12 +797,21 @@ export default function Navbar() {
                         <FiCalendar />
                         <span>Manage Events</span>
                       </Link>
+                      <Link
+                        href="/admin/host-applications"
+                        className="flex items-center space-x-3 hover:bg-white/10 px-4 py-3 rounded-lg text-white transition-all duration-200"
+                        onClick={() => setIsOpen(false)}
+                      >
+                        <FiAward />
+                        <span>Host Applications</span>
+                      </Link>
                     </>
                   )}
 
                   {menuItems.map((item, index) => renderMenuItem(item, index, true))}
                 </>
               ) : (
+                // Logged Out Mobile View
                 <>
                   <Link
                     href="/become-host"

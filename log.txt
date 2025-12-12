@@ -489,3 +489,18 @@ System.Threading.Channels.ChannelClosedException: The channel has been closed.
 2025-12-11 15:29:30.843 +06:00 [WRN] No ConfigurationItems have been defined, configuration won't surface any configuration from the client!
 2025-12-11 15:29:32.211 +06:00 [DBG] Finished: Routing Notification initialized in 3503ms
 2025-12-11 15:29:32.216 +06:00 [DBG] Finished: Processing notification initialized in 3528ms
+2025-12-11 23:02:35.954 +06:00 [INF] This only goes file...
+2025-12-11 23:03:42.246 +06:00 [INF] Foo
+2025-12-11 23:06:53.229 +06:00 [DBG] Finding descriptors for initialize
+2025-12-11 23:07:01.272 +06:00 [DBG] Queueing "Serial":initialize:0 request for processing
+2025-12-11 23:07:02.456 +06:00 [DBG] Starting: Processing request initialize 0
+2025-12-11 23:07:02.572 +06:00 [DBG] Starting: Routing Request (0) initialize
+2025-12-11 23:07:02.858 +06:00 [VRB] Converting params for Request (0) initialize to OmniSharp.Extensions.LanguageServer.Protocol.Models.InternalInitializeParams
+2025-12-11 23:07:02.880 +06:00 [VRB] Converting params for Notification initialize to OmniSharp.Extensions.LanguageServer.Protocol.Models.InternalInitializeParams
+2025-12-11 23:07:14.991 +06:00 [VRB] Response value was OmniSharp.Extensions.LanguageServer.Protocol.Models.InitializeResult
+2025-12-11 23:07:15.300 +06:00 [DBG] Finished: Routing Request (0) initialize in 12710ms
+2025-12-11 23:07:15.333 +06:00 [DBG] Finished: Processing request initialize 0 in 12808ms
+2025-12-11 23:28:27.508 +06:00 [VRB] Could not write to output handler, perhaps serialization failed?
+System.Threading.Channels.ChannelClosedException: The channel has been closed.
+   at System.Threading.Channels.AsyncOperation`1.GetResult(Int16 token)
+   at OmniSharp.Extensions.JsonRpc.OutputHandler.ProcessOutputStream(CancellationToken cancellationToken)
